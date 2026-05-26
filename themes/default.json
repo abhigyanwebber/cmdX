@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "name": "default",
+    "version": "1.0.0",
+    "author": "abhigyanwebber",
+    "description": "Clean and minimal default theme"
+  },
+  "colors": {
+    "primary":    "#00BFFF",
+    "secondary":  "#6A9FB5",
+    "background": "#1E1E1E",
+    "foreground": "#D4D4D4",
+    "accent":     "#569CD6",
+    "error":      "#F44747",
+    "success":    "#4EC9B0",
+    "warning":    "#CE9178",
+    "muted":      "#555555"
+  },
+  "prompt": {
+    "symbol": "❯",
+    "separator": "›",
+    "style": "single",
+    "segments": ["directory", "git"],
+    "format": "{dir} {git} {symbol} "
+  },
+  "loader": {
+    "frames": ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"],
+    "interval_ms": 80,
+    "color": "primary"
+  },
+  "progress_bar": {
+    "filled": "█",
+    "empty":  "░",
+    "width":  40,
+    "color":  "primary"
+  },
+  "cursor": {
+    "style": "bar",
+    "blink": true,
+    "color": "primary"
+  },
+  "borders": {
+    "style": "rounded",
+    "chars": {
+      "top_left":     "╭",
+      "top_right":    "╮",
+      "bottom_left":  "╰",
+      "bottom_right": "╯",
+      "horizontal":   "─",
+      "vertical":     "│"
+    }
+  },
+  "banner": {
+    "enabled": true,
+    "text":    "Welcome, {user}",
+    "style":   "plain",
+    "color":   "accent"
+  }
+}

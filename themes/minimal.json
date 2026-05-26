@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "name": "minimal",
+    "version": "1.0.0",
+    "author": "abhigyanwebber",
+    "description": "Pure focus, zero noise"
+  },
+  "colors": {
+    "primary":    "#FFFFFF",
+    "secondary":  "#AAAAAA",
+    "background": "#000000",
+    "foreground": "#CCCCCC",
+    "accent":     "#FFFFFF",
+    "error":      "#FF5555",
+    "success":    "#55FF55",
+    "warning":    "#FFFF55",
+    "muted":      "#333333"
+  },
+  "prompt": {
+    "symbol": "→",
+    "separator": " ",
+    "style": "single",
+    "segments": ["directory"],
+    "format": "{dir} {symbol} "
+  },
+  "loader": {
+    "frames": ["-","\\","|","/"],
+    "interval_ms": 120,
+    "color": "muted"
+  },
+  "progress_bar": {
+    "filled": "=",
+    "empty":  "-",
+    "width":  30,
+    "color":  "primary"
+  },
+  "cursor": {
+    "style": "underline",
+    "blink": false,
+    "color": "primary"
+  },
+  "borders": {
+    "style": "none",
+    "chars": {
+      "top_left":     " ",
+      "top_right":    " ",
+      "bottom_left":  " ",
+      "bottom_right": " ",
+      "horizontal":   "-",
+      "vertical":     "|"
+    }
+  },
+  "banner": {
+    "enabled": false,
+    "text":    "",
+    "style":   "plain",
+    "color":   "muted"
+  }
+}

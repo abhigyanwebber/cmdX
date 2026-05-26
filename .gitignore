@@ -1,0 +1,15 @@
+# Binary
+cmdx.exe
+cmdx
+
+# Go build cache
+*.test
+*.out
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

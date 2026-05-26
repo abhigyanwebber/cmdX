@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "name": "retro",
+    "version": "1.0.0",
+    "author": "abhigyanwebber",
+    "description": "Old school green phosphor terminal"
+  },
+  "colors": {
+    "primary":    "#33FF33",
+    "secondary":  "#00AA00",
+    "background": "#0A0A0A",
+    "foreground": "#33FF33",
+    "accent":     "#AAFF00",
+    "error":      "#FF3333",
+    "success":    "#33FF33",
+    "warning":    "#FFAA00",
+    "muted":      "#1A4A1A"
+  },
+  "prompt": {
+    "symbol": "$",
+    "separator": ">",
+    "style": "single",
+    "segments": ["user", "directory"],
+    "format": "{user}@terminal:{dir}{symbol} "
+  },
+  "loader": {
+    "frames": ["|","/","-","\\"],
+    "interval_ms": 150,
+    "color": "primary"
+  },
+  "progress_bar": {
+    "filled": "#",
+    "empty":  ".",
+    "width":  40,
+    "color":  "primary"
+  },
+  "cursor": {
+    "style": "block",
+    "blink": true,
+    "color": "primary"
+  },
+  "borders": {
+    "style": "classic",
+    "chars": {
+      "top_left":     "+",
+      "top_right":    "+",
+      "bottom_left":  "+",
+      "bottom_right": "+",
+      "horizontal":   "-",
+      "vertical":     "|"
+    }
+  },
+  "banner": {
+    "enabled": true,
+    "text":    "READY.",
+    "style":   "plain",
+    "color":   "primary"
+  }
+}
