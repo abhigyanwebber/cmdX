@@ -237,12 +237,17 @@ cmdX/
 - [x] Live preview command
 - [x] Theme validator
 - [x] Install scripts (Windows + Unix)
-- [ ] Shell injection (PowerShell + zsh)
-- [ ] Cursor control per shell
-- [ ] Plugin / extension API
-- [ ] Community theme registry
-- [ ] GUI theme editor
-- [ ] Wallpaper and icon support
+- [x] Shell injection (PowerShell, zsh, bash)
+- [x] Graphics engine (gradients, effects, dividers, patterns)
+- [x] Plugin API
+- [x] Community theme registry
+- [x] TUI theme editor
+- [x] Wallpaper support (Windows Terminal, iTerm2, Kitty)
+- [x] Icon sets (Nerd Fonts, Emoji, ASCII)
+- [ ] Sound themes
+- [ ] Font installer
+- [ ] Web-based theme builder
+- [ ] VS Code extension
 
 ---
 
