@@ -56,4 +56,31 @@
     "style":   "plain",
     "color":   "primary"
   }
+
+  ,
+  "graphics": {
+    "gradient": {
+      "enabled": true,
+      "from": "#33FF33",
+      "to": "#00AA00",
+      "direction": "horizontal"
+    },
+    "divider": {
+      "style": "line",
+      "color": "#33FF33"
+    },
+    "effects": {
+      "banner": "none",
+      "prompt": "none"
+    },
+    "icons": {
+      "enabled": false,
+      "directory": "/",
+      "git_branch": "git:",
+      "error": "ERR",
+      "success": "OK",
+      "time": ""
+    }
+  }
+  
 }

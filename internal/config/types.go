@@ -10,6 +10,7 @@ type Theme struct {
 	Cursor      Cursor      `json:"cursor"`
 	Borders     Borders     `json:"borders"`
 	Banner      Banner      `json:"banner"`
+	Graphics    Graphics    `json:"graphics"`
 }
 
 type Meta struct {
@@ -77,4 +78,38 @@ type Banner struct {
 	Text    string `json:"text"`
 	Style   string `json:"style"`
 	Color   string `json:"color"`
+}
+
+// Graphics holds all visual effect settings for a theme
+type Graphics struct {
+	Gradient GradientConfig `json:"gradient"`
+	Divider  DividerConfig  `json:"divider"`
+	Effects  EffectsConfig  `json:"effects"`
+	Icons    IconsConfig    `json:"icons"`
+}
+
+type GradientConfig struct {
+	Enabled   bool   `json:"enabled"`
+	From      string `json:"from"`
+	To        string `json:"to"`
+	Direction string `json:"direction"` // horizontal, vertical
+}
+
+type DividerConfig struct {
+	Style string `json:"style"` // wave, line, dots, stars, double
+	Color string `json:"color"`
+}
+
+type EffectsConfig struct {
+	Banner string `json:"banner"` // glitch, rainbow, pulse, none
+	Prompt string `json:"prompt"` // rainbow, none
+}
+
+type IconsConfig struct {
+	Enabled   bool   `json:"enabled"`
+	Directory string `json:"directory"`
+	GitBranch string `json:"git_branch"`
+	Error     string `json:"error"`
+	Success   string `json:"success"`
+	Time      string `json:"time"`
 }
