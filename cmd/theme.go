@@ -7,6 +7,7 @@ import (
 
 	"github.com/abhigyanwebber/cmd-customizer/internal/config"
 	"github.com/abhigyanwebber/cmd-customizer/internal/preview"
+	"github.com/abhigyanwebber/cmd-customizer/internal/shells/powershell"
 	"github.com/abhigyanwebber/cmd-customizer/internal/theme"
 	"github.com/spf13/cobra"
 )
@@ -162,6 +163,66 @@ var themePreviewCmd = &cobra.Command{
 	},
 }
 
+var themeInjectCmd = &cobra.Command{
+	Use:   "inject [theme-name]",
+	Short: "Inject a theme into your shell config (persists after restart)",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+
+		m, err := theme.NewManager(getThemesDir())
+		if err != nil {
+			fmt.Println("✗ Error:", err)
+			os.Exit(1)
+		}
+
+		t, err := m.Load(name)
+		if err != nil {
+			fmt.Println("✗ Error:", err)
+			os.Exit(1)
+		}
+
+		shell := powershell.New()
+
+		// check if already injected
+		injected, _ := shell.IsInjected()
+		if injected {
+			fmt.Printf("! Theme already injected. Overwriting with '%s'...\n", name)
+		}
+
+		if err := shell.Inject(t); err != nil {
+			fmt.Println("✗ Injection failed:", err)
+			os.Exit(1)
+		}
+
+		path, _ := shell.ProfilePath()
+		fmt.Printf("✓ Theme '%s' injected into %s\n", name, path)
+		fmt.Println("  Restart your terminal to see changes.")
+	},
+}
+
+var themeRemoveCmd = &cobra.Command{
+	Use:   "remove",
+	Short: "Remove cmdx theme injection from your shell config",
+	Run: func(cmd *cobra.Command, args []string) {
+		shell := powershell.New()
+
+		injected, _ := shell.IsInjected()
+		if !injected {
+			fmt.Println("! No cmdx theme found in shell config.")
+			return
+		}
+
+		if err := shell.Remove(); err != nil {
+			fmt.Println("✗ Failed to remove:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("✓ cmdx theme removed from shell config.")
+		fmt.Println("  Restart your terminal to revert to default.")
+	},
+}
+
 func init() {
 	themeCmd.AddCommand(themeListCmd)
 	themeCmd.AddCommand(themeApplyCmd)
@@ -169,4 +230,6 @@ func init() {
 	themeCmd.AddCommand(themeValidateCmd)
 	themeCmd.AddCommand(themePreviewCmd)
 	rootCmd.AddCommand(themeCmd)
+	themeCmd.AddCommand(themeInjectCmd)
+	themeCmd.AddCommand(themeRemoveCmd)
 }
