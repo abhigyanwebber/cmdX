@@ -6,33 +6,43 @@
     "description": "Neon soaked cyberpunk terminal"
   },
   "colors": {
-    "primary":    "#FF00FF",
-    "secondary":  "#00FFFF",
+    "primary": "#FF6600",
+    "secondary": "#00FFFF",
     "background": "#0D0D0D",
     "foreground": "#FFFFFF",
-    "accent":     "#FFD700",
-    "error":      "#FF4444",
-    "success":    "#00FF88",
-    "warning":    "#FFA500",
-    "muted":      "#444444"
+    "accent": "#FFD700",
+    "error": "#FF4444",
+    "success": "#00FF88",
+    "warning": "#FFA500",
+    "muted": "#444444"
   },
   "prompt": {
     "symbol": "▶",
     "separator": "⟩",
     "style": "multiline",
-    "segments": ["user", "directory", "git", "time"],
+    "segments": [
+      "user",
+      "directory",
+      "git",
+      "time"
+    ],
     "format": "{user} @ {dir} {git}\n{symbol} "
   },
   "loader": {
-    "frames": ["◐","◓","◑","◒"],
+    "frames": [
+      "◐",
+      "◓",
+      "◑",
+      "◒"
+    ],
     "interval_ms": 100,
     "color": "primary"
   },
   "progress_bar": {
     "filled": "▓",
-    "empty":  "░",
-    "width":  50,
-    "color":  "primary"
+    "empty": "░",
+    "width": 50,
+    "color": "primary"
   },
   "cursor": {
     "style": "block",
@@ -42,22 +52,20 @@
   "borders": {
     "style": "sharp",
     "chars": {
-      "top_left":     "┌",
-      "top_right":    "┐",
-      "bottom_left":  "└",
+      "top_left": "┌",
+      "top_right": "┐",
+      "bottom_left": "└",
       "bottom_right": "┘",
-      "horizontal":   "─",
-      "vertical":     "│"
+      "horizontal": "─",
+      "vertical": "│"
     }
   },
   "banner": {
     "enabled": true,
-    "text":    "SYSTEM ONLINE // {user}",
-    "style":   "figlet",
-    "color":   "primary"
-  }
-
-  ,
+    "text": "SYSTEM ONLINE // {user}",
+    "style": "figlet",
+    "color": "primary"
+  },
   "graphics": {
     "gradient": {
       "enabled": true,
@@ -82,5 +90,4 @@
       "time": ""
     }
   }
-  
 }
