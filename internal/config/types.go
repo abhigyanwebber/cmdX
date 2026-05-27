@@ -11,6 +11,8 @@ type Theme struct {
 	Borders     Borders     `json:"borders"`
 	Banner      Banner      `json:"banner"`
 	Graphics    Graphics    `json:"graphics"`
+	Wallpaper   Wallpaper   `json:"wallpaper"`
+	Icons       IconSet     `json:"icons"`
 }
 
 type Meta struct {
@@ -112,4 +114,32 @@ type IconsConfig struct {
 	Error     string `json:"error"`
 	Success   string `json:"success"`
 	Time      string `json:"time"`
+}
+
+type Wallpaper struct {
+	Enabled   bool    `json:"enabled"`
+	Path      string  `json:"path"`
+	Opacity   float64 `json:"opacity"`
+	Stretch   string  `json:"stretch"`   // fill, uniform, uniformToFill, none
+	Alignment string  `json:"alignment"` // center, topLeft, topRight, etc
+}
+
+type IconSet struct {
+	Enabled   bool   `json:"enabled"`
+	Font      string `json:"font"` // nerd-fonts, emoji, ascii
+	Directory string `json:"directory"`
+	File      string `json:"file"`
+	GitBranch string `json:"git_branch"`
+	GitDirty  string `json:"git_dirty"`
+	GitClean  string `json:"git_clean"`
+	Error     string `json:"error"`
+	Success   string `json:"success"`
+	Warning   string `json:"warning"`
+	Time      string `json:"time"`
+	Package   string `json:"package"`
+	Docker    string `json:"docker"`
+	Python    string `json:"python"`
+	NodeJS    string `json:"node"`
+	Rust      string `json:"rust"`
+	Go        string `json:"go"`
 }
