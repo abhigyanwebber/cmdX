@@ -7,10 +7,33 @@ import (
 
 	"github.com/abhigyanwebber/cmd-customizer/internal/config"
 	"github.com/abhigyanwebber/cmd-customizer/internal/preview"
+	"github.com/abhigyanwebber/cmd-customizer/internal/shells"
+	"github.com/abhigyanwebber/cmd-customizer/internal/shells/bash"
 	"github.com/abhigyanwebber/cmd-customizer/internal/shells/powershell"
+	"github.com/abhigyanwebber/cmd-customizer/internal/shells/zsh"
 	"github.com/abhigyanwebber/cmd-customizer/internal/theme"
 	"github.com/spf13/cobra"
 )
+
+// detectShell auto-detects the running shell and returns the right implementation
+func detectShell() (shells.Shell, string) {
+	ps := powershell.New()
+	if ps.Detect() {
+		return ps, "powershell"
+	}
+
+	z := zsh.New()
+	if z.Detect() {
+		return z, "zsh"
+	}
+
+	b := bash.New()
+	if b.Detect() {
+		return b, "bash"
+	}
+
+	return nil, ""
+}
 
 // getThemesDir resolves themes directory relative to binary or dev working dir
 func getThemesDir() string {
@@ -182,9 +205,15 @@ var themeInjectCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		shell := powershell.New()
+		shell, shellName := detectShell()
+		if shell == nil {
+			fmt.Println("✗ Could not detect shell. Use --shell to specify one.")
+			fmt.Println("  Options: powershell, zsh, bash")
+			os.Exit(1)
+		}
 
-		// check if already injected
+		fmt.Printf("  Detected shell: %s\n", shellName)
+
 		injected, _ := shell.IsInjected()
 		if injected {
 			fmt.Printf("! Theme already injected. Overwriting with '%s'...\n", name)
@@ -205,7 +234,13 @@ var themeRemoveCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Remove cmdx theme injection from your shell config",
 	Run: func(cmd *cobra.Command, args []string) {
-		shell := powershell.New()
+		shell, shellName := detectShell()
+		if shell == nil {
+			fmt.Println("✗ Could not detect shell.")
+			os.Exit(1)
+		}
+
+		fmt.Printf("  Detected shell: %s\n", shellName)
 
 		injected, _ := shell.IsInjected()
 		if !injected {
