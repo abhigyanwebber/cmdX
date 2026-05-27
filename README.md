@@ -217,16 +217,39 @@ cmdx theme validate ./my-theme.json
 
 ## Project Structure
 
+```
 cmdX/
 ├── cmd/                    # CLI entry point and commands
+│   ├── main.go
+│   ├── root.go
+│   ├── theme.go
+│   ├── plugin.go
+│   ├── registry.go
+│   ├── edit.go
+│   └── wallpaper.go
 ├── internal/
 │   ├── config/             # JSON loader and validator
 │   ├── theme/              # Theme manager and renderer
 │   ├── primitives/         # Spinner, progress bar, banner
-│   └── preview/            # Live preview engine
+│   ├── preview/            # Live preview engine
+│   ├── graphics/           # Gradients, effects, dividers, patterns
+│   ├── shells/             # Shell injection (PowerShell, zsh, bash)
+│   │   ├── powershell/
+│   │   ├── zsh/
+│   │   └── bash/
+│   ├── plugin/             # Plugin API and manager
+│   ├── registry/           # Community theme registry
+│   ├── editor/             # TUI theme editor
+│   ├── wallpaper/          # Terminal wallpaper support
+│   └── icons/              # Icon sets (Nerd Fonts, Emoji, ASCII)
 ├── themes/                 # Built-in theme JSON files
+├── plugins/                # Plugin directory
+│   └── example-plugin/
 ├── scripts/                # Install scripts
+│   ├── install.sh
+│   └── install.ps1
 └── docs/                   # Documentation
+```
 
 ---
 
