@@ -6,7 +6,7 @@
     "description": "Neon soaked cyberpunk terminal"
   },
   "colors": {
-    "primary": "#FF6600",
+    "primary": "#FF00FF",
     "secondary": "#00FFFF",
     "background": "#0D0D0D",
     "foreground": "#FFFFFF",
@@ -89,5 +89,31 @@
       "success": "",
       "time": ""
     }
+  },
+  "wallpaper": {
+    "enabled": false,
+    "path": "",
+    "opacity": 0,
+    "stretch": "",
+    "alignment": ""
+  },
+  "icons": {
+    "enabled": false,
+    "font": "",
+    "directory": "",
+    "file": "",
+    "git_branch": "",
+    "git_dirty": "",
+    "git_clean": "",
+    "error": "",
+    "success": "",
+    "warning": "",
+    "time": "",
+    "package": "",
+    "docker": "",
+    "python": "",
+    "node": "",
+    "rust": "",
+    "go": ""
   }
 }
