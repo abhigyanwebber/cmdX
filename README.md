@@ -38,6 +38,8 @@ One JSON file. Every shell. Every OS.
 - **Validation** — instant feedback if your theme JSON has errors
 - **Cross-platform** — Windows (CMD + PowerShell), macOS (zsh), Linux (bash/zsh/fish)
 - **Zero runtime** — single binary, no dependencies to install
+- **PNG asset system** — upload your own graphics as spinners, icons, banners and dividers
+- **Sixel rendering** — clean image-quality graphics inside your terminal via chafa
 
 ---
 
@@ -226,7 +228,8 @@ cmdX/
 │   ├── plugin.go
 │   ├── registry.go
 │   ├── edit.go
-│   └── wallpaper.go
+│   ├── wallpaper.go
+│   └── asset.go
 ├── internal/
 │   ├── config/             # JSON loader and validator
 │   ├── theme/              # Theme manager and renderer
@@ -241,7 +244,18 @@ cmdX/
 │   ├── registry/           # Community theme registry
 │   ├── editor/             # TUI theme editor
 │   ├── wallpaper/          # Terminal wallpaper support
-│   └── icons/              # Icon sets (Nerd Fonts, Emoji, ASCII)
+│   ├── icons/              # Icon sets (Nerd Fonts, Emoji, ASCII)
+│   └── assets/             # PNG asset engine (chafa rendering)
+│       ├── types.go
+│       ├── chafa.go
+│       ├── loader.go
+│       └── manager.go
+├── assets/                 # User asset library
+│   ├── spinners/           # PNG spinner assets
+│   │   └── pulse/          # Example spinner
+│   ├── icons/              # PNG icon assets
+│   ├── banners/            # PNG banner assets
+│   └── dividers/           # PNG divider assets
 ├── themes/                 # Built-in theme JSON files
 ├── plugins/                # Plugin directory
 │   └── example-plugin/
@@ -250,8 +264,6 @@ cmdX/
 │   └── install.ps1
 └── docs/                   # Documentation
 ```
-
----
 
 ## Roadmap
 
@@ -267,6 +279,8 @@ cmdX/
 - [x] TUI theme editor
 - [x] Wallpaper support (Windows Terminal, iTerm2, Kitty)
 - [x] Icon sets (Nerd Fonts, Emoji, ASCII)
+- [x] PNG asset system (spinners, icons, banners, dividers)
+- [x] Sixel/braille/block rendering via chafa
 - [ ] Sound themes
 - [ ] Font installer
 - [ ] Web-based theme builder
