@@ -51,6 +51,16 @@ if ! command -v git &> /dev/null; then
 fi
 ok "Git found: $(git version)"
 
+if ! command -v chafa &> /dev/null; then
+    warn "chafa not found — installing"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install chafa
+    else
+        sudo apt-get install -y chafa 2>/dev/null || sudo dnf install -y chafa 2>/dev/null
+    fi
+fi
+ok "chafa found: $(chafa --version | head -1)"
+
 # ── Clone ─────────────────────────────────────────────────
 step "Cloning repository"
 

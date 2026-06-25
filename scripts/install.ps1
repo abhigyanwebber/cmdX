@@ -43,6 +43,14 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 Write-Ok "Git found: $(git version)"
 
+if (-not (Get-Command chafa -ErrorAction SilentlyContinue)) {
+    Write-Warn "chafa not found — installing via winget"
+    winget install hpjansson.chafa
+    Write-Ok "chafa installed"
+} else {
+    Write-Ok "chafa found: $(chafa --version | Select-Object -First 1)"
+}
+
 # ── Clone ─────────────────────────────────────────────────
 Write-Step "Cloning repository"
 
