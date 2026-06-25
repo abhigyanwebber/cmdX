@@ -1,0 +1,36 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "cmdx",
+	Short: "cmd-customizer — take control of your terminal",
+	Long: `
+ ██████╗███╗   ███╗██████╗ ██╗  ██╗
+██╔════╝████╗ ████║██╔══██╗╚██╗██╔╝
+██║     ██╔████╔██║██║  ██║ ╚███╔╝ 
+██║     ██║╚██╔╝██║██║  ██║ ██╔██╗ 
+╚██████╗██║ ╚═╝ ██║██████╔╝██╔╝ ██╗
+ ╚═════╝╚═╝     ╚═╝╚═════╝ ╚═╝  ╚═╝
+
+cmd-customizer — break free from the boring terminal.
+Themes, prompts, spinners, cursors — all yours to control.
+
+GitHub: https://github.com/abhigyanwebber/cmd-customizer`,
+
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

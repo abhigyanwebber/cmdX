@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "name": "synthwave",
+    "version": "1.0.0",
+    "author": "abhigyanwebber",
+    "description": "Purple and pink synthwave aesthetic"
+  },
+  "colors": {
+    "primary":    "#FF71CE",
+    "secondary":  "#B967FF",
+    "background": "#1A1A2E",
+    "foreground": "#E0E0FF",
+    "accent":     "#01CDFE",
+    "error":      "#FF4444",
+    "success":    "#05FFA1",
+    "warning":    "#FFFB96",
+    "muted":      "#4A4A6A"
+  },
+  "prompt": {
+    "symbol": "⟩",
+    "separator": "›",
+    "style": "multiline",
+    "segments": ["user", "directory", "git", "time"],
+    "format": "{user} @ {dir} {git}\n{symbol} "
+  },
+  "loader": {
+    "frames": ["◐","◓","◑","◒"],
+    "interval_ms": 100,
+    "color": "primary"
+  },
+  "progress_bar": {
+    "filled": "▓",
+    "empty":  "░",
+    "width":  45,
+    "color":  "primary"
+  },
+  "cursor": {
+    "style": "bar",
+    "blink": true,
+    "color": "primary"
+  },
+  "borders": {
+    "style": "rounded",
+    "chars": {
+      "top_left":     "╭",
+      "top_right":    "╮",
+      "bottom_left":  "╰",
+      "bottom_right": "╯",
+      "horizontal":   "─",
+      "vertical":     "│"
+    }
+  },
+  "banner": {
+    "enabled": true,
+    "text":    "SYNTHWAVE // {user}",
+    "style":   "plain",
+    "color":   "primary"
+  },
+  "graphics": {
+    "gradient": {
+      "enabled": true,
+      "from": "#FF71CE",
+      "to": "#B967FF",
+      "direction": "horizontal"
+    },
+    "divider": {
+      "style": "wave",
+      "color": "#FF71CE"
+    },
+    "effects": {
+      "banner": "neon",
+      "prompt": "none"
+    },
+    "icons": {
+      "enabled": true,
+      "directory": "󰉋",
+      "git_branch": "",
+      "error": "",
+      "success": "",
+      "time": ""
+    }
+  }
+}

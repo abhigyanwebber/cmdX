@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "name": "example-plugin",
+    "version": "1.0.0",
+    "author": "abhigyanwebber",
+    "description": "Example plugin showing all extension points",
+    "homepage": "https://github.com/abhigyanwebber/cmdX"
+  },
+  "spinners": [
+    {
+      "name": "matrix",
+      "frames": ["▓▒░", "░▓▒", "▒░▓", "▒▓░", "░▒▓"],
+      "interval_ms": 120,
+      "color": "#00FF00"
+    },
+    {
+      "name": "pulse",
+      "frames": ["█", "▓", "▒", "░", "▒", "▓"],
+      "interval_ms": 100,
+      "color": "#FF00FF"
+    }
+  ],
+  "banners": [
+    {
+      "name": "hacker",
+      "text": "INITIATING SEQUENCE // {user}",
+      "style": "plain",
+      "color": "#00FF00"
+    },
+    {
+      "name": "minimal",
+      "text": "> {user}",
+      "style": "plain",
+      "color": "#FFFFFF"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "arrow-chain",
+      "symbol": "⟹",
+      "separator": "→",
+      "style": "single",
+      "segments": ["directory", "git"],
+      "format": "{dir} → {git} ⟹ "
+    },
+    {
+      "name": "minimal-dot",
+      "symbol": "·",
+      "separator": " ",
+      "style": "multiline",
+      "segments": ["directory"],
+      "format": "{dir}\n· "
+    }
+  ]
+}
