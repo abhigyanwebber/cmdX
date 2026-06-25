@@ -213,3 +213,107 @@ func copyDir(src string, dst string) error {
 		return os.WriteFile(destPath, data, info.Mode())
 	})
 }
+
+// PreviewBanner renders and displays a banner asset
+func (m *Manager) PreviewBanner(name string) error {
+	a, assetDir, err := m.Get(name, AssetTypeBanner)
+	if err != nil {
+		return err
+	}
+
+	if a.Banner == nil {
+		return fmt.Errorf("asset '%s' has no banner config", name)
+	}
+
+	bannerPath := filepath.Join(assetDir, a.Banner.File)
+
+	opts := ChafaOptions{
+		Mode:      a.Render.Mode,
+		ColorMode: a.Render.ColorMode,
+		SymbolSet: a.Render.SymbolSet,
+		Width:     a.Render.Width,
+		Height:    a.Render.Height,
+		Dither:    a.Render.Dither,
+		Stretch:   a.Render.Stretch,
+		Threshold: a.Render.Threshold,
+	}
+
+	rendered, err := Render(bannerPath, opts)
+	if err != nil {
+		return fmt.Errorf("could not render banner: %w", err)
+	}
+
+	fmt.Println(rendered)
+	return nil
+}
+
+// PreviewDivider renders and displays a divider asset
+func (m *Manager) PreviewDivider(name string) error {
+	a, assetDir, err := m.Get(name, AssetTypeDivider)
+	if err != nil {
+		return err
+	}
+
+	if a.Divider == nil {
+		return fmt.Errorf("asset '%s' has no divider config", name)
+	}
+
+	dividerPath := filepath.Join(assetDir, a.Divider.File)
+
+	opts := ChafaOptions{
+		Mode:      a.Render.Mode,
+		ColorMode: a.Render.ColorMode,
+		SymbolSet: a.Render.SymbolSet,
+		Width:     a.Render.Width,
+		Height:    a.Render.Height,
+		Dither:    a.Render.Dither,
+		Stretch:   a.Render.Stretch,
+		Threshold: a.Render.Threshold,
+	}
+
+	rendered, err := Render(dividerPath, opts)
+	if err != nil {
+		return fmt.Errorf("could not render divider: %w", err)
+	}
+
+	fmt.Println(rendered)
+	return nil
+}
+
+// PreviewIcon renders and displays a single icon from an icon asset
+func (m *Manager) PreviewIcon(name string, iconKey string) error {
+	a, assetDir, err := m.Get(name, AssetTypeIcon)
+	if err != nil {
+		return err
+	}
+
+	if a.Icon == nil {
+		return fmt.Errorf("asset '%s' has no icon config", name)
+	}
+
+	file, ok := a.Icon.Files[iconKey]
+	if !ok {
+		return fmt.Errorf("icon key '%s' not found in asset '%s'", iconKey, name)
+	}
+
+	iconPath := filepath.Join(assetDir, file)
+
+	opts := ChafaOptions{
+		Mode:      a.Render.Mode,
+		ColorMode: a.Render.ColorMode,
+		SymbolSet: a.Render.SymbolSet,
+		Width:     a.Render.Width,
+		Height:    a.Render.Height,
+		Dither:    a.Render.Dither,
+		Stretch:   a.Render.Stretch,
+		Threshold: a.Render.Threshold,
+	}
+
+	rendered, err := Render(iconPath, opts)
+	if err != nil {
+		return fmt.Errorf("could not render icon: %w", err)
+	}
+
+	fmt.Printf("  %s: %s", iconKey, rendered)
+	return nil
+}

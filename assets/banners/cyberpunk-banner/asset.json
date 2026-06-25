@@ -1,0 +1,23 @@
+{
+  "name": "cyberpunk-banner",
+  "type": "banner",
+  "version": "1.0.0",
+  "author": "abhigyanwebber",
+  "description": "Cyberpunk gradient banner with neon borders",
+  "render": {
+    "mode": "sixel",
+    "width": 80,
+    "height": 6,
+    "color_mode": "truecolor",
+    "symbol_set": "none",
+    "dither": false,
+    "stretch": true,
+    "threshold": 0.3
+  },
+  "banner": {
+    "file": "banner.png",
+    "position": "center",
+    "max_width": 80,
+    "max_height": 6
+  }
+}

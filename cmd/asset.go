@@ -163,6 +163,7 @@ var assetPreviewCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 		duration, _ := cmd.Flags().GetInt("duration")
+		iconKey, _ := cmd.Flags().GetString("icon")
 
 		if !assets.ChafaAvailable() {
 			fmt.Println("✗ chafa is not installed.")
@@ -176,12 +177,59 @@ var assetPreviewCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("  Previewing spinner '%s'...\n\n", name)
-
-		if err := m.PreviewSpinner(name, time.Duration(duration)*time.Second); err != nil {
-			fmt.Println("✗ Preview failed:", err)
-			os.Exit(1)
+		// try each asset type
+		types := []assets.AssetType{
+			assets.AssetTypeSpinner,
+			assets.AssetTypeBanner,
+			assets.AssetTypeDivider,
+			assets.AssetTypeIcon,
 		}
+
+		for _, t := range types {
+			a, _, err := m.Get(name, t)
+			if err != nil {
+				continue
+			}
+
+			fmt.Printf("\n  Preview: %s (%s)\n\n", a.Name, a.Type)
+
+			switch a.Type {
+			case assets.AssetTypeSpinner:
+				if err := m.PreviewSpinner(name, time.Duration(duration)*time.Second); err != nil {
+					fmt.Println("✗ Preview failed:", err)
+					os.Exit(1)
+				}
+
+			case assets.AssetTypeBanner:
+				if err := m.PreviewBanner(name); err != nil {
+					fmt.Println("✗ Preview failed:", err)
+					os.Exit(1)
+				}
+
+			case assets.AssetTypeDivider:
+				if err := m.PreviewDivider(name); err != nil {
+					fmt.Println("✗ Preview failed:", err)
+					os.Exit(1)
+				}
+
+			case assets.AssetTypeIcon:
+				if iconKey != "" {
+					if err := m.PreviewIcon(name, iconKey); err != nil {
+						fmt.Println("✗ Preview failed:", err)
+						os.Exit(1)
+					}
+				} else {
+					// preview all icons
+					fmt.Printf("  Icons in '%s':\n\n", name)
+					for key := range a.Icon.Files {
+						m.PreviewIcon(name, key)
+					}
+				}
+			}
+			return
+		}
+
+		fmt.Printf("✗ Asset '%s' not found.\n", name)
 	},
 }
 
@@ -248,7 +296,8 @@ var assetChafaCmd = &cobra.Command{
 }
 
 func init() {
-	assetPreviewCmd.Flags().IntP("duration", "d", 5, "Preview duration in seconds")
+	assetPreviewCmd.Flags().IntP("duration", "d", 5, "Preview duration in seconds (spinners only)")
+	assetPreviewCmd.Flags().StringP("icon", "i", "", "Icon key to preview (icons only, e.g. directory, error)")
 
 	assetCmd.AddCommand(assetListCmd)
 	assetCmd.AddCommand(assetImportCmd)

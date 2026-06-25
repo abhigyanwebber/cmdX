@@ -1,0 +1,22 @@
+{
+  "name": "neon-divider",
+  "type": "divider",
+  "version": "1.0.0",
+  "author": "abhigyanwebber",
+  "description": "Neon gradient divider line",
+  "render": {
+    "mode": "sixel",
+    "width": 80,
+    "height": 1,
+    "color_mode": "truecolor",
+    "symbol_set": "none",
+    "dither": false,
+    "stretch": true,
+    "threshold": 0.3
+  },
+  "divider": {
+    "file": "divider.png",
+    "tile_mode": "stretch",
+    "height": 1
+  }
+}

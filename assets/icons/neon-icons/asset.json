@@ -1,0 +1,27 @@
+{
+  "name": "neon-icons",
+  "type": "icon",
+  "version": "1.0.0",
+  "author": "abhigyanwebber",
+  "description": "Neon glowing icon set",
+  "render": {
+    "mode": "sixel",
+    "width": 2,
+    "height": 1,
+    "color_mode": "truecolor",
+    "symbol_set": "none",
+    "dither": false,
+    "stretch": true,
+    "threshold": 0.3
+  },
+  "icon": {
+    "files": {
+      "directory": "directory.png",
+      "git_branch": "git_branch.png",
+      "error":      "error.png",
+      "success":    "success.png",
+      "warning":    "warning.png",
+      "time":       "time.png"
+    }
+  }
+}
