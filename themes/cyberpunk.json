@@ -115,5 +115,11 @@
     "node": "",
     "rust": "",
     "go": ""
+  },
+  "assets": {
+    "spinner": "pulse",
+    "banner":  "cyberpunk-banner",
+    "divider": "neon-divider",
+    "icons":   "neon-icons"
   }
 }

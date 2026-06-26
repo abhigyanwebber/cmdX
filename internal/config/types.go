@@ -13,6 +13,7 @@ type Theme struct {
 	Graphics    Graphics    `json:"graphics"`
 	Wallpaper   Wallpaper   `json:"wallpaper"`
 	Icons       IconSet     `json:"icons"`
+	Assets      ThemeAssets `json:"assets"`
 }
 
 type Meta struct {
@@ -142,4 +143,12 @@ type IconSet struct {
 	NodeJS    string `json:"node"`
 	Rust      string `json:"rust"`
 	Go        string `json:"go"`
+}
+
+// ThemeAssets links named assets to theme slots
+type ThemeAssets struct {
+	Spinner string `json:"spinner,omitempty"`
+	Banner  string `json:"banner,omitempty"`
+	Divider string `json:"divider,omitempty"`
+	Icons   string `json:"icons,omitempty"`
 }

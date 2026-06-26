@@ -295,9 +295,83 @@ var assetChafaCmd = &cobra.Command{
 	},
 }
 
+var assetUseCmd = &cobra.Command{
+	Use:   "use [asset-name]",
+	Short: "Use a standalone asset without applying a full theme",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		name := args[0]
+		slot, _ := cmd.Flags().GetString("as")
+
+		if slot == "" {
+			fmt.Println("✗ Specify what to use this asset as: --as spinner|banner|divider|icons")
+			os.Exit(1)
+		}
+
+		m, err := assets.NewManager(getAssetsDir())
+		if err != nil {
+			fmt.Println("✗ Error:", err)
+			os.Exit(1)
+		}
+
+		validTypes := map[string]assets.AssetType{
+			"spinner": assets.AssetTypeSpinner,
+			"banner":  assets.AssetTypeBanner,
+			"divider": assets.AssetTypeDivider,
+			"icons":   assets.AssetTypeIcon,
+		}
+
+		assetType, ok := validTypes[slot]
+		if !ok {
+			fmt.Printf("✗ Unknown slot '%s'. Use: spinner, banner, divider, icons\n", slot)
+			os.Exit(1)
+		}
+
+		_, _, err = m.Get(name, assetType)
+		if err != nil {
+			fmt.Printf("✗ Asset '%s' not found as type '%s'\n", name, slot)
+			os.Exit(1)
+		}
+
+		// save active asset selection to a state file
+		stateDir := filepath.Join(getAssetsDir(), ".state")
+		os.MkdirAll(stateDir, 0755)
+		statePath := filepath.Join(stateDir, slot+".txt")
+		if err := os.WriteFile(statePath, []byte(name), 0644); err != nil {
+			fmt.Println("✗ Could not save asset state:", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("✓ '%s' is now active as your %s\n", name, slot)
+		fmt.Printf("  Preview: cmdx asset preview %s\n", name)
+	},
+}
+
+var assetStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show currently active assets",
+	Run: func(cmd *cobra.Command, args []string) {
+		stateDir := filepath.Join(getAssetsDir(), ".state")
+		slots := []string{"spinner", "banner", "divider", "icons"}
+
+		fmt.Println("\n  Active Assets:\n")
+		for _, slot := range slots {
+			statePath := filepath.Join(stateDir, slot+".txt")
+			data, err := os.ReadFile(statePath)
+			if err != nil {
+				fmt.Printf("  %-10s  none\n", slot+":")
+				continue
+			}
+			fmt.Printf("  %-10s  %s\n", slot+":", string(data))
+		}
+		fmt.Println()
+	},
+}
+
 func init() {
 	assetPreviewCmd.Flags().IntP("duration", "d", 5, "Preview duration in seconds (spinners only)")
-	assetPreviewCmd.Flags().StringP("icon", "i", "", "Icon key to preview (icons only, e.g. directory, error)")
+	assetPreviewCmd.Flags().StringP("icon", "i", "", "Icon key to preview (icons only)")
+	assetUseCmd.Flags().StringP("as", "a", "", "Asset slot: spinner, banner, divider, icons")
 
 	assetCmd.AddCommand(assetListCmd)
 	assetCmd.AddCommand(assetImportCmd)
@@ -306,5 +380,7 @@ func init() {
 	assetCmd.AddCommand(assetValidateCmd)
 	assetCmd.AddCommand(assetRemoveCmd)
 	assetCmd.AddCommand(assetChafaCmd)
+	assetCmd.AddCommand(assetUseCmd)
+	assetCmd.AddCommand(assetStatusCmd)
 	rootCmd.AddCommand(assetCmd)
 }
