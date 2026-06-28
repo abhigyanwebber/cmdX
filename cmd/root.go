@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/abhigyanwebber/cmd-customizer/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,12 @@ var rootCmd = &cobra.Command{
 cmd-customizer — break free from the boring terminal.
 Themes, prompts, spinners, cursors — all yours to control.
 
-GitHub: https://github.com/abhigyanwebber/cmd-customizer`,
+GitHub: https://github.com/abhigyanwebber/cmdX`,
+
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// initialize global config on every command
+		config.InitGlobalConfig()
+	},
 
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()

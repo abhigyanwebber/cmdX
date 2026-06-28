@@ -4,36 +4,28 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
+	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
-// RGB holds red, green, blue values
+// ParseHex converts a hex color string to a colorful.Color
+func ParseHex(hex string) (colorful.Color, error) {
+	c, err := colorful.Hex(hex)
+	if err != nil {
+		return colorful.Color{}, fmt.Errorf("invalid hex color '%s': %w", hex, err)
+	}
+	return c, nil
+}
+
+// RGB holds red, green, blue values (0-255) for ANSI output
 type RGB struct {
 	R, G, B uint8
 }
 
-// ParseHex converts a hex color string to RGB
-func ParseHex(hex string) (RGB, error) {
-	hex = strings.TrimPrefix(hex, "#")
-	if len(hex) != 6 {
-		return RGB{}, fmt.Errorf("invalid hex color: %s", hex)
-	}
-
-	var r, g, b uint8
-	_, err := fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b)
-	if err != nil {
-		return RGB{}, fmt.Errorf("could not parse hex color: %w", err)
-	}
-
-	return RGB{r, g, b}, nil
-}
-
-// Interpolate blends two colors at position t (0.0 to 1.0)
-func Interpolate(from, to RGB, t float64) RGB {
-	return RGB{
-		R: uint8(math.Round(float64(from.R) + t*float64(int(to.R)-int(from.R)))),
-		G: uint8(math.Round(float64(from.G) + t*float64(int(to.G)-int(from.G)))),
-		B: uint8(math.Round(float64(from.B) + t*float64(int(to.B)-int(from.B)))),
-	}
+// ToRGB converts a colorful.Color to RGB struct
+func ToRGB(c colorful.Color) RGB {
+	r, g, b := c.Clamped().RGB255()
+	return RGB{r, g, b}
 }
 
 // AnsiColor wraps text in a 24-bit ANSI foreground color
@@ -46,16 +38,27 @@ func AnsiBgColor(c RGB, text string) string {
 	return fmt.Sprintf("\033[48;2;%d;%d;%dm%s\033[0m", c.R, c.G, c.B, text)
 }
 
-// GradientText applies a horizontal gradient across each character
+// AnsiColorHex wraps text using a hex color string directly
+func AnsiColorHex(hex string, text string) string {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return text
+	}
+	rgb := ToRGB(c)
+	return AnsiColor(rgb, text)
+}
+
+// GradientText applies a smooth LAB color space gradient across each character
+// LAB blending produces natural transitions without muddy midpoints
 func GradientText(text string, fromHex string, toHex string) (string, error) {
 	from, err := ParseHex(fromHex)
 	if err != nil {
-		return text, err
+		return text, fmt.Errorf("gradient from color: %w", err)
 	}
 
 	to, err := ParseHex(toHex)
 	if err != nil {
-		return text, err
+		return text, fmt.Errorf("gradient to color: %w", err)
 	}
 
 	runes := []rune(text)
@@ -66,40 +69,119 @@ func GradientText(text string, fromHex string, toHex string) (string, error) {
 
 	var result strings.Builder
 	for i, ch := range runes {
-		t := float64(i) / float64(total-1)
-		if total == 1 {
-			t = 0
+		t := 0.0
+		if total > 1 {
+			t = float64(i) / float64(total-1)
 		}
-		color := Interpolate(from, to, t)
-		result.WriteString(AnsiColor(color, string(ch)))
+		// BlendLab gives perceptually uniform color transitions
+		blended := from.BlendLab(to, t).Clamped()
+		rgb := ToRGB(blended)
+		result.WriteString(AnsiColor(rgb, string(ch)))
 	}
 
 	return result.String(), nil
 }
 
-// GradientLine renders a full line of a character with a gradient
+// GradientLine renders a full line of a character with a LAB gradient
 func GradientLine(char string, width int, fromHex string, toHex string) (string, error) {
 	line := strings.Repeat(char, width)
 	return GradientText(line, fromHex, toHex)
 }
 
-// RainbowText applies rainbow colors across text
+// RainbowText applies perceptually uniform rainbow colors across text
+// Uses LCH color space for vivid, consistent brightness
 func RainbowText(text string) string {
-	colors := []RGB{
-		{255, 0, 0},
-		{255, 127, 0},
-		{255, 255, 0},
-		{0, 255, 0},
-		{0, 0, 255},
-		{75, 0, 130},
-		{148, 0, 211},
-	}
-
 	runes := []rune(text)
 	var result strings.Builder
+
 	for i, ch := range runes {
-		color := colors[i%len(colors)]
-		result.WriteString(AnsiColor(color, string(ch)))
+		// rotate hue evenly across 360 degrees
+		hue := float64(i%7) / 7.0 * 360.0
+		c := colorful.Hcl(hue, 0.8, 0.6)
+		rgb := ToRGB(c)
+		result.WriteString(AnsiColor(rgb, string(ch)))
 	}
 	return result.String()
+}
+
+// ComplementaryColor returns the complementary hex color
+func ComplementaryColor(hex string) (string, error) {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return hex, err
+	}
+	h, s, v := c.Hsv()
+	complementH := math.Mod(h+180, 360)
+	comp := colorful.Hsv(complementH, s, v)
+	return comp.Hex(), nil
+}
+
+// AnalogousColors returns two analogous colors (30 degrees apart)
+func AnalogousColors(hex string) (string, string, error) {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return hex, hex, err
+	}
+	h, s, v := c.Hsv()
+	c1 := colorful.Hsv(math.Mod(h+30, 360), s, v)
+	c2 := colorful.Hsv(math.Mod(h-30+360, 360), s, v)
+	return c1.Hex(), c2.Hex(), nil
+}
+
+// TriadicColors returns two triadic colors (120 degrees apart)
+func TriadicColors(hex string) (string, string, error) {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return hex, hex, err
+	}
+	h, s, v := c.Hsv()
+	c1 := colorful.Hsv(math.Mod(h+120, 360), s, v)
+	c2 := colorful.Hsv(math.Mod(h+240, 360), s, v)
+	return c1.Hex(), c2.Hex(), nil
+}
+
+// WarmColor shifts a color slightly warmer
+func WarmColor(hex string, amount float64) (string, error) {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return hex, err
+	}
+	h, s, v := c.Hsv()
+	// shift hue toward red/orange (warmer)
+	h = math.Mod(h-amount*30+360, 360)
+	return colorful.Hsv(h, s, v).Hex(), nil
+}
+
+// CoolColor shifts a color slightly cooler
+func CoolColor(hex string, amount float64) (string, error) {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return hex, err
+	}
+	h, s, v := c.Hsv()
+	// shift hue toward blue (cooler)
+	h = math.Mod(h+amount*30, 360)
+	return colorful.Hsv(h, s, v).Hex(), nil
+}
+
+// LightenColor increases the lightness of a color
+func LightenColor(hex string, amount float64) (string, error) {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return hex, err
+	}
+	h, s, v := c.Hsv()
+	v = math.Min(1.0, v+amount)
+	return colorful.Hsv(h, s, v).Hex(), nil
+}
+
+// DarkenColor decreases the lightness of a color
+func DarkenColor(hex string, amount float64) (string, error) {
+	c, err := ParseHex(hex)
+	if err != nil {
+		return hex, err
+	}
+	h, s, v := c.Hsv()
+	v = math.Max(0.0, v-amount)
+	return colorful.Hsv(h, s, v).Hex(), nil
 }

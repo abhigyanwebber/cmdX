@@ -1,10 +1,7 @@
 package graphics
 
-import (
-	"strings"
-)
+import "strings"
 
-// Pattern defines a repeating visual texture
 type Pattern string
 
 const (
@@ -16,25 +13,22 @@ const (
 	PatternStars    Pattern = "stars"
 )
 
-// RenderPattern renders a pattern block of given width and height
 func RenderPattern(p Pattern, width int, height int, colorHex string) string {
-	color, err := ParseHex(colorHex)
+	c, err := ParseHex(colorHex)
 	if err != nil {
-		color = RGB{80, 80, 80}
+		return strings.Repeat(" ", width*height)
 	}
+	rgb := ToRGB(c)
 
 	var lines []string
-
 	for row := 0; row < height; row++ {
 		var line strings.Builder
-
 		for col := 0; col < width; col++ {
 			ch := patternChar(p, row, col)
-			line.WriteString(AnsiColor(color, string(ch)))
+			line.WriteString(AnsiColor(rgb, string(ch)))
 		}
 		lines = append(lines, line.String())
 	}
-
 	return strings.Join(lines, "\n")
 }
 
@@ -45,13 +39,11 @@ func patternChar(p Pattern, row, col int) rune {
 			return '·'
 		}
 		return ' '
-
 	case PatternGrid:
 		if row%2 == 0 || col%4 == 0 {
 			return '+'
 		}
 		return ' '
-
 	case PatternDiagonal:
 		if (row+col)%4 == 0 {
 			return '\\'
@@ -60,7 +52,6 @@ func patternChar(p Pattern, row, col int) rune {
 			return '/'
 		}
 		return ' '
-
 	case PatternBricks:
 		if row%2 == 0 {
 			if col%6 == 0 {
@@ -75,7 +66,6 @@ func patternChar(p Pattern, row, col int) rune {
 			return '─'
 		}
 		return ' '
-
 	case PatternCircuit:
 		chars := [][]rune{
 			{' ', ' ', '─', '─', '┐', ' '},
@@ -84,7 +74,6 @@ func patternChar(p Pattern, row, col int) rune {
 			{' ', ' ', ' ', '└', '─', '┐'},
 		}
 		return chars[row%len(chars)][col%6]
-
 	case PatternStars:
 		if (row*3+col)%7 == 0 {
 			return '✦'
@@ -93,7 +82,6 @@ func patternChar(p Pattern, row, col int) rune {
 			return '·'
 		}
 		return ' '
-
 	default:
 		return ' '
 	}

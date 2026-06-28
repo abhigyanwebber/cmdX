@@ -143,10 +143,18 @@ func buildChafaArgs(imagePath string, opts ChafaOptions) []string {
 }
 
 // DefaultRenderConfig returns sensible defaults for a given render mode
+// DefaultRenderConfig returns the best render config for the current terminal
 func DefaultRenderConfig(mode RenderMode) RenderConfig {
+	// if mode is not specified use best available
+	if mode == "" {
+		mode = BestRenderMode()
+	}
+
+	colorMode := BestColorMode()
+
 	base := RenderConfig{
 		Mode:      mode,
-		ColorMode: ColorModeTrueColor,
+		ColorMode: colorMode,
 		Dither:    false,
 		Stretch:   false,
 		Threshold: 0.5,

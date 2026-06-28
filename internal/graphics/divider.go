@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-// DividerStyle defines available divider styles
 type DividerStyle string
 
 const (
@@ -18,51 +17,44 @@ const (
 	StyleZigzag DividerStyle = "zigzag"
 )
 
-// Divider renders a styled horizontal divider
-func Divider(style DividerStyle, width int, colorHex string) string {
-	color, err := ParseHex(colorHex)
-	if err != nil {
-		color = RGB{100, 100, 100}
-	}
-
-	var pattern string
-
+func dividerPattern(style DividerStyle, width int) string {
 	switch style {
 	case StyleLine:
-		pattern = strings.Repeat("─", width)
+		return strings.Repeat("─", width)
 	case StyleWave:
 		unit := "~-~"
-		reps := width / len(unit)
-		pattern = strings.Repeat(unit, reps)
+		return strings.Repeat(unit, width/len(unit))
 	case StyleDots:
 		unit := "· "
-		reps := width / len(unit)
-		pattern = strings.Repeat(unit, reps)
+		return strings.Repeat(unit, width/len(unit))
 	case StyleStars:
 		unit := "✦ "
-		reps := width / len(unit)
-		pattern = strings.Repeat(unit, reps)
+		return strings.Repeat(unit, width/len(unit))
 	case StyleDouble:
-		pattern = strings.Repeat("═", width)
+		return strings.Repeat("═", width)
 	case StyleArrow:
-		unit := "»"
-		reps := width / len(unit)
-		pattern = strings.Repeat(unit, reps)
+		return strings.Repeat("»", width)
 	case StyleZigzag:
 		unit := "/\\"
-		reps := width / len(unit)
-		pattern = strings.Repeat(unit, reps)
+		return strings.Repeat(unit, width/len(unit))
 	default:
-		pattern = strings.Repeat("─", width)
+		return strings.Repeat("─", width)
 	}
-
-	return AnsiColor(color, pattern)
 }
 
-// GradientDivider renders a divider with a gradient color
+// Divider renders a styled horizontal divider
+func Divider(style DividerStyle, width int, colorHex string) string {
+	c, err := ParseHex(colorHex)
+	if err != nil {
+		return dividerPattern(style, width)
+	}
+	rgb := ToRGB(c)
+	return AnsiColor(rgb, dividerPattern(style, width))
+}
+
+// GradientDivider renders a divider with a LAB gradient
 func GradientDivider(style DividerStyle, width int, fromHex string, toHex string) (string, error) {
 	var char string
-
 	switch style {
 	case StyleLine:
 		char = "─"
@@ -75,30 +67,30 @@ func GradientDivider(style DividerStyle, width int, fromHex string, toHex string
 	default:
 		char = "─"
 	}
-
 	line := strings.Repeat(char, width)
 	return GradientText(line, fromHex, toHex)
 }
 
 // SectionHeader renders a titled divider
 func SectionHeader(title string, width int, colorHex string) string {
-	color, err := ParseHex(colorHex)
+	c, err := ParseHex(colorHex)
 	if err != nil {
-		color = RGB{100, 100, 100}
+		return title
 	}
+	rgb := ToRGB(c)
 
 	titleLen := len([]rune(title)) + 2
 	remaining := width - titleLen
 	if remaining < 0 {
 		remaining = 0
 	}
-
 	left := remaining / 2
 	right := remaining - left
 
-	leftLine := strings.Repeat("─", left)
-	rightLine := strings.Repeat("─", right)
-
-	result := fmt.Sprintf("%s %s %s", leftLine, title, rightLine)
-	return AnsiColor(color, result)
+	result := fmt.Sprintf("%s %s %s",
+		strings.Repeat("─", left),
+		title,
+		strings.Repeat("─", right),
+	)
+	return AnsiColor(rgb, result)
 }

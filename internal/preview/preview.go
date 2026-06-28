@@ -138,7 +138,7 @@ func (p *Preview) renderBannerWithEffect() {
 		frames := graphics.GlitchFrames("  "+bannerText, 6)
 		for _, frame := range frames {
 			color, _ := graphics.ParseHex(p.resolve(t.Banner.Color))
-			fmt.Printf("\r%s", graphics.AnsiColor(color, frame))
+			fmt.Printf("\r%s", graphics.AnsiColor(graphics.ToRGB(color), frame))
 			time.Sleep(80 * time.Millisecond)
 		}
 		fmt.Println()
@@ -250,7 +250,7 @@ func (p *Preview) renderEffects() {
 	// Glitch
 	glitched := graphics.GlitchText("  SYSTEM ERROR: unexpected token at line 42", 0.2)
 	color, _ := graphics.ParseHex(t.Colors.Error)
-	fmt.Println(graphics.AnsiColor(color, glitched))
+	fmt.Println(graphics.AnsiColor(graphics.ToRGB(color), glitched))
 
 	// Neon
 	neon, err := graphics.NeonText("  NEON GLOW ACTIVE", primary)
