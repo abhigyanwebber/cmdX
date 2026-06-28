@@ -1,0 +1,25 @@
+# Binaries
+cmdx.exe
+*.exe
+*.test
+*.out
+
+# Generated PNG frames
+assets/spinners/*/frame*.png
+assets/banners/*/*.png
+assets/dividers/*/*.png
+assets/icons/*/*.png
+
+# Asset state
+assets/.state/
+
+# Git
+.git/
+
+# Dependencies
+vendor/
+go.sum
+
+# OS
+.DS_Store
+Thumbs.db
