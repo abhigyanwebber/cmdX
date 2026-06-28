@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "name": "blue sky",
+    "version": "1.0.0",
+    "author": "abhigyanwebber",
+    "description": "a theme that gives the relaxing feeling just like an open blue sky"
+  },
+  "colors": {
+    "primary": "#00BFFF",
+    "secondary": "#00CFFF",
+    "background": "#E8F4F8",
+    "foreground": "#FFFFFF",
+    "accent": "#050A14",
+    "error": "#FF4444",
+    "success": "#00F5FF",
+    "warning": "#FF8C00",
+    "muted": "#2A0A1A"
+  },
+  "prompt": {
+    "symbol": "-=",
+    "separator": "›",
+    "style": "single",
+    "segments": [
+      "directory",
+      "git"
+    ],
+    "format": "{dir} {git} {symbol} "
+  },
+  "loader": {
+    "frames": [
+      "✦",
+      "✧",
+      "✦",
+      "✧",
+      "·",
+      "✦"
+    ],
+    "interval_ms": 60,
+    "color": "primary"
+  },
+  "progress_bar": {
+    "filled": "█",
+    "empty": "░",
+    "width": 40,
+    "color": "primary"
+  },
+  "cursor": {
+    "style": "underline",
+    "blink": true,
+    "color": "primary"
+  },
+  "borders": {
+    "style": "rounded",
+    "chars": {
+      "top_left": "╭",
+      "top_right": "╮",
+      "bottom_left": "╰",
+      "bottom_right": "╯",
+      "horizontal": "─",
+      "vertical": "│"
+    }
+  },
+  "banner": {
+    "enabled": true,
+    "text": "Welcome, {user}",
+    "style": "plain",
+    "color": "primary"
+  },
+  "graphics": {
+    "gradient": {
+      "enabled": true,
+      "from": "#0A1628",
+      "to": "#2A0A1A",
+      "direction": "horizontal"
+    },
+    "divider": {
+      "style": "wave",
+      "color": "#00BFFF"
+    },
+    "effects": {
+      "banner": "rainbow",
+      "prompt": "none"
+    },
+    "icons": {
+      "enabled": true,
+      "directory": "󰉋",
+      "git_branch": "",
+      "error": "",
+      "success": "",
+      "time": ""
+    }
+  },
+  "wallpaper": {
+    "enabled": false,
+    "path": "",
+    "opacity": 0,
+    "stretch": "",
+    "alignment": ""
+  },
+  "icons": {
+    "enabled": false,
+    "font": "",
+    "directory": "",
+    "file": "",
+    "git_branch": "",
+    "git_dirty": "",
+    "git_clean": "",
+    "error": "",
+    "success": "",
+    "warning": "",
+    "time": "",
+    "package": "",
+    "docker": "",
+    "python": "",
+    "node": "",
+    "rust": "",
+    "go": ""
+  },
+  "assets": {}
+}
