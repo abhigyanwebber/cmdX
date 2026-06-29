@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/abhigyanwebber/cmd-customizer/internal/config"
 	"github.com/abhigyanwebber/cmd-customizer/internal/registry"
+	"github.com/abhigyanwebber/cmd-customizer/internal/render"
 	"github.com/spf13/cobra"
 )
 
@@ -35,18 +37,26 @@ var registryListCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("\n  Community Themes (%d available):\n\n", len(index.Themes))
+		md := fmt.Sprintf("# Community Themes\n\n%d themes available · `cmdx registry fetch <name>` to download\n\n", len(index.Themes))
+		md += "| Name | Author | Description | Tags |\n"
+		md += "|------|--------|-------------|------|\n"
+
 		for _, t := range index.Themes {
-			tags := ""
-			for i, tag := range t.Tags {
-				if i > 0 {
-					tags += ", "
-				}
-				tags += tag
+			tags := strings.Join(t.Tags, ", ")
+			if tags == "" {
+				tags = "—"
 			}
-			fmt.Printf("  %-20s  %s\n", t.Name, t.Description)
-			fmt.Printf("  %-20s  by %s  [%s]\n\n", "", t.Author, tags)
+			md += fmt.Sprintf("| **%s** | %s | %s | %s |\n",
+				t.Name,
+				orEmDash(t.Author),
+				orEmDash(t.Description),
+				tags,
+			)
 		}
+
+		md += fmt.Sprintf("\n_Updated: %s_\n", index.UpdatedAt)
+
+		render.Markdown(md)
 	},
 }
 
@@ -64,7 +74,6 @@ var registryFetchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// validate the downloaded theme
 		themePath := getThemesDir() + "/" + name + ".json"
 		t, err := config.LoadTheme(themePath)
 		if err != nil {
@@ -77,9 +86,10 @@ var registryFetchCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("✓ Theme '%s' downloaded successfully\n", name)
-		fmt.Printf("  Run 'cmdx theme preview %s' to preview it\n", name)
-		fmt.Printf("  Run 'cmdx theme apply %s' to apply it\n", name)
+		md := fmt.Sprintf("# ✓ Theme Downloaded\n\n**%s** is ready to use.\n\n| Command | Action |\n|---------|--------|\n| `cmdx theme preview %s` | Preview the theme |\n| `cmdx theme info %s` | Show full theme details |\n| `cmdx theme apply %s` | Apply to your terminal |\n",
+			name, name, name, name)
+
+		render.Markdown(md)
 	},
 }
 
@@ -100,16 +110,37 @@ var registrySearchCmd = &cobra.Command{
 
 		results := registry.Search(index, query)
 		if len(results) == 0 {
-			fmt.Printf("  No themes found for '%s'\n\n", query)
+			render.Markdown(fmt.Sprintf("# No Results\n\nNo themes found matching **%s**.\n\nTry `cmdx registry list` to see all available themes.\n", query))
 			return
 		}
 
-		fmt.Printf("  Found %d result(s):\n\n", len(results))
+		md := fmt.Sprintf("# Search: \"%s\"\n\n%d result(s) found\n\n", query, len(results))
+		md += "| Name | Author | Version | Description | Tags |\n"
+		md += "|------|--------|---------|-------------|------|\n"
+
 		for _, t := range results {
-			fmt.Printf("  %-20s  %s\n", t.Name, t.Description)
-			fmt.Printf("  %-20s  by %s  v%s\n\n", "", t.Author, t.Version)
+			tags := strings.Join(t.Tags, ", ")
+			if tags == "" {
+				tags = "—"
+			}
+			md += fmt.Sprintf("| **%s** | %s | %s | %s | %s |\n",
+				t.Name,
+				orEmDash(t.Author),
+				orEmDash(t.Version),
+				orEmDash(t.Description),
+				tags,
+			)
 		}
+
+		render.Markdown(md)
 	},
+}
+
+func orEmDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func init() {
