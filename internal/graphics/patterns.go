@@ -2,8 +2,11 @@ package graphics
 
 import "strings"
 
+// Pattern identifies a background fill pattern style usable in theme
+// previews and wallpaper-like terminal decoration.
 type Pattern string
 
+// Available background patterns.
 const (
 	PatternDots     Pattern = "dots"
 	PatternGrid     Pattern = "grid"
@@ -13,6 +16,9 @@ const (
 	PatternStars    Pattern = "stars"
 )
 
+// RenderPattern renders a width x height block of the given pattern,
+// colored with colorHex, as a multi-line string with embedded ANSI
+// escape codes. Falls back to plain spaces if colorHex is invalid.
 func RenderPattern(p Pattern, width int, height int, colorHex string) string {
 	c, err := ParseHex(colorHex)
 	if err != nil {

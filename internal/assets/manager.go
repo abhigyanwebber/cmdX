@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -12,7 +13,8 @@ type Manager struct {
 	AssetsDir string
 }
 
-// NewManager creates an asset manager
+// NewManager creates an asset manager rooted at assetsDir, creating the
+// directory if it doesn't exist.
 func NewManager(assetsDir string) (*Manager, error) {
 	if _, err := os.Stat(assetsDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(assetsDir, 0755); err != nil {
@@ -22,7 +24,8 @@ func NewManager(assetsDir string) (*Manager, error) {
 	return &Manager{AssetsDir: assetsDir}, nil
 }
 
-// List returns all assets of a given type
+// List returns all assets of a given type installed under AssetsDir.
+// Returns nil (not an error) if no assets of that type exist yet.
 func (m *Manager) List(assetType AssetType) ([]*Asset, error) {
 	subDir := filepath.Join(m.AssetsDir, string(assetType)+"s")
 	if _, err := os.Stat(subDir); os.IsNotExist(err) {
@@ -34,7 +37,7 @@ func (m *Manager) List(assetType AssetType) ([]*Asset, error) {
 		return nil, fmt.Errorf("could not read assets directory: %w", err)
 	}
 
-	var assets []*Asset
+	var result []*Asset
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -45,12 +48,14 @@ func (m *Manager) List(assetType AssetType) ([]*Asset, error) {
 			fmt.Printf("  ! Skipping '%s': %s\n", entry.Name(), err)
 			continue
 		}
-		assets = append(assets, a)
+		result = append(result, a)
 	}
-	return assets, nil
+	return result, nil
 }
 
-// Get returns a specific asset by name and type
+// Get returns a specific asset by name and type, along with its
+// directory on disk. Returns an error if the asset doesn't exist or
+// fails to load.
 func (m *Manager) Get(name string, assetType AssetType) (*Asset, string, error) {
 	assetDir := filepath.Join(m.AssetsDir, string(assetType)+"s", name)
 	if _, err := os.Stat(assetDir); os.IsNotExist(err) {
@@ -64,7 +69,10 @@ func (m *Manager) Get(name string, assetType AssetType) (*Asset, string, error) 
 	return a, assetDir, nil
 }
 
-// Import copies an asset folder into the assets directory
+// Import copies a source asset folder into the assets directory,
+// validating the manifest and all referenced files first. Returns an
+// error if the asset already exists (use Remove first) or fails
+// validation.
 func (m *Manager) Import(sourcePath string) (*Asset, error) {
 	a, err := LoadAsset(sourcePath)
 	if err != nil {
@@ -88,8 +96,27 @@ func (m *Manager) Import(sourcePath string) (*Asset, error) {
 	return a, nil
 }
 
-// PreviewSpinner renders and plays a spinner asset in the terminal
+// Remove deletes a named asset of the given type from the assets
+// directory.
+func (m *Manager) Remove(name string, assetType AssetType) error {
+	assetDir := filepath.Join(m.AssetsDir, string(assetType)+"s", name)
+	if _, err := os.Stat(assetDir); os.IsNotExist(err) {
+		return fmt.Errorf("asset '%s' not found", name)
+	}
+	return os.RemoveAll(assetDir)
+}
+
+// PreviewSpinner renders and plays a spinner asset for the given
+// duration, cycling through frames at the asset's configured interval.
+// Supports bounce and reverse playback modes from the manifest.
 func (m *Manager) PreviewSpinner(name string, duration time.Duration) error {
+	return m.PreviewSpinnerWithOverrides(name, duration, RenderOverrides{})
+}
+
+// PreviewSpinnerWithOverrides is like PreviewSpinner but applies runtime
+// render overrides on top of the manifest's render config. Zero-value
+// override fields fall back to the manifest defaults.
+func (m *Manager) PreviewSpinnerWithOverrides(name string, duration time.Duration, overrides RenderOverrides) error {
 	a, assetDir, err := m.Get(name, AssetTypeSpinner)
 	if err != nil {
 		return err
@@ -100,23 +127,13 @@ func (m *Manager) PreviewSpinner(name string, duration time.Duration) error {
 		return err
 	}
 
-	opts := ChafaOptions{
-		Mode:      a.Render.Mode,
-		ColorMode: a.Render.ColorMode,
-		SymbolSet: a.Render.SymbolSet,
-		Width:     a.Render.Width,
-		Height:    a.Render.Height,
-		Dither:    a.Render.Dither,
-		Stretch:   a.Render.Stretch,
-		Threshold: a.Render.Threshold,
-	}
+	opts := ApplyOverrides(optionsFromConfig(a.Render), overrides)
 
 	frames, err := RenderFrames(framePaths, opts)
 	if err != nil {
 		return err
 	}
 
-	// apply bounce mode
 	if a.Spinner.Bounce {
 		reversed := make([]string, len(frames))
 		for i, f := range frames {
@@ -125,7 +142,6 @@ func (m *Manager) PreviewSpinner(name string, duration time.Duration) error {
 		frames = append(frames, reversed...)
 	}
 
-	// apply reverse mode
 	if a.Spinner.Reverse {
 		for i, j := 0, len(frames)-1; i < j; i, j = i+1, j-1 {
 			frames[i], frames[j] = frames[j], frames[i]
@@ -137,9 +153,8 @@ func (m *Manager) PreviewSpinner(name string, duration time.Duration) error {
 	idx := 0
 
 	for time.Now().Before(deadline) {
-		frame := frames[idx%len(frames)]
-		fmt.Print("\033[H\033[2J") // clear screen
-		fmt.Println(frame)
+		fmt.Print("\033[H\033[2J")
+		fmt.Println(frames[idx%len(frames)])
 		idx++
 		time.Sleep(interval)
 	}
@@ -147,8 +162,15 @@ func (m *Manager) PreviewSpinner(name string, duration time.Duration) error {
 	return nil
 }
 
-// RenderSpinnerFrames returns pre-rendered frames ready for animation
+// RenderSpinnerFrames returns pre-rendered frames ready for animation,
+// along with the configured frame interval in milliseconds.
 func (m *Manager) RenderSpinnerFrames(name string) ([]string, int, error) {
+	return m.RenderSpinnerFramesWithOverrides(name, RenderOverrides{})
+}
+
+// RenderSpinnerFramesWithOverrides is like RenderSpinnerFrames but applies
+// runtime render overrides on top of the manifest defaults.
+func (m *Manager) RenderSpinnerFramesWithOverrides(name string, overrides RenderOverrides) ([]string, int, error) {
 	a, assetDir, err := m.Get(name, AssetTypeSpinner)
 	if err != nil {
 		return nil, 0, err
@@ -159,17 +181,7 @@ func (m *Manager) RenderSpinnerFrames(name string) ([]string, int, error) {
 		return nil, 0, err
 	}
 
-	opts := ChafaOptions{
-		Mode:      a.Render.Mode,
-		ColorMode: a.Render.ColorMode,
-		SymbolSet: a.Render.SymbolSet,
-		Width:     a.Render.Width,
-		Height:    a.Render.Height,
-		Dither:    a.Render.Dither,
-		Stretch:   a.Render.Stretch,
-		Threshold: a.Render.Threshold,
-	}
-
+	opts := ApplyOverrides(optionsFromConfig(a.Render), overrides)
 	frames, err := RenderFrames(framePaths, opts)
 	if err != nil {
 		return nil, 0, err
@@ -178,16 +190,183 @@ func (m *Manager) RenderSpinnerFrames(name string) ([]string, int, error) {
 	return frames, a.Spinner.IntervalMs, nil
 }
 
-// Remove deletes an asset from the assets directory
-func (m *Manager) Remove(name string, assetType AssetType) error {
-	assetDir := filepath.Join(m.AssetsDir, string(assetType)+"s", name)
-	if _, err := os.Stat(assetDir); os.IsNotExist(err) {
-		return fmt.Errorf("asset '%s' not found", name)
-	}
-	return os.RemoveAll(assetDir)
+// PreviewBanner renders and prints a banner asset to the terminal.
+func (m *Manager) PreviewBanner(name string) error {
+	return m.PreviewBannerWithOverrides(name, RenderOverrides{})
 }
 
-// copyDir recursively copies a directory
+// PreviewBannerWithOverrides is like PreviewBanner but applies runtime
+// render overrides.
+func (m *Manager) PreviewBannerWithOverrides(name string, overrides RenderOverrides) error {
+	a, assetDir, err := m.Get(name, AssetTypeBanner)
+	if err != nil {
+		return err
+	}
+
+	if a.Banner == nil {
+		return fmt.Errorf("asset '%s' has no banner config", name)
+	}
+
+	bannerPath := filepath.Join(assetDir, a.Banner.File)
+	opts := ApplyOverrides(optionsFromConfig(a.Render), overrides)
+
+	rendered, err := Render(bannerPath, opts)
+	if err != nil {
+		return fmt.Errorf("could not render banner: %w", err)
+	}
+
+	fmt.Println(rendered)
+	return nil
+}
+
+// PreviewDivider renders and prints a divider asset to the terminal.
+func (m *Manager) PreviewDivider(name string) error {
+	return m.PreviewDividerWithOverrides(name, RenderOverrides{})
+}
+
+// PreviewDividerWithOverrides is like PreviewDivider but applies runtime
+// render overrides.
+func (m *Manager) PreviewDividerWithOverrides(name string, overrides RenderOverrides) error {
+	a, assetDir, err := m.Get(name, AssetTypeDivider)
+	if err != nil {
+		return err
+	}
+
+	if a.Divider == nil {
+		return fmt.Errorf("asset '%s' has no divider config", name)
+	}
+
+	dividerPath := filepath.Join(assetDir, a.Divider.File)
+	opts := ApplyOverrides(optionsFromConfig(a.Render), overrides)
+
+	rendered, err := Render(dividerPath, opts)
+	if err != nil {
+		return fmt.Errorf("could not render divider: %w", err)
+	}
+
+	fmt.Println(rendered)
+	return nil
+}
+
+// PreviewFloater renders and displays a floater asset at its configured
+// corner position.
+func (m *Manager) PreviewFloater(name string) error {
+	return m.PreviewFloaterWithOverrides(name, "", RenderOverrides{})
+}
+
+// PreviewFloaterWithOverrides is like PreviewFloater but allows
+// overriding both the corner position and any render options at runtime.
+// An empty positionOverride means "use the manifest's configured position".
+func (m *Manager) PreviewFloaterWithOverrides(name string, positionOverride FloaterPosition, overrides RenderOverrides) error {
+	a, assetDir, err := m.Get(name, AssetTypeFloater)
+	if err != nil {
+		return err
+	}
+
+	if a.Floater == nil {
+		return fmt.Errorf("asset '%s' has no floater config", name)
+	}
+
+	pos := a.Floater.Position
+	if positionOverride != "" {
+		pos = positionOverride
+	}
+
+	floaterPath := filepath.Join(assetDir, a.Floater.File)
+	opts := ApplyOverrides(optionsFromConfig(a.Render), overrides)
+
+	rendered, err := Render(floaterPath, opts)
+	if err != nil {
+		return fmt.Errorf("could not render floater: %w", err)
+	}
+
+	fmt.Printf("  [%s]\n%s\n", pos, rendered)
+	return nil
+}
+
+// RenderFloaterFrames returns pre-rendered animation frames for an
+// animated floater, along with frame interval and position.
+func (m *Manager) RenderFloaterFrames(name string) ([]string, int, FloaterPosition, error) {
+	return m.RenderFloaterFramesWithOverrides(name, "", RenderOverrides{})
+}
+
+// RenderFloaterFramesWithOverrides is like RenderFloaterFrames but
+// applies runtime render overrides and an optional position override.
+func (m *Manager) RenderFloaterFramesWithOverrides(name string, positionOverride FloaterPosition, overrides RenderOverrides) ([]string, int, FloaterPosition, error) {
+	a, assetDir, err := m.Get(name, AssetTypeFloater)
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	if a.Floater == nil {
+		return nil, 0, "", fmt.Errorf("asset '%s' has no floater config", name)
+	}
+	if len(a.Floater.AnimateFrames) == 0 {
+		return nil, 0, "", fmt.Errorf("floater '%s' has no animate_frames configured", name)
+	}
+
+	pos := a.Floater.Position
+	if positionOverride != "" {
+		pos = positionOverride
+	}
+
+	framePaths := make([]string, len(a.Floater.AnimateFrames))
+	for i, frame := range a.Floater.AnimateFrames {
+		framePaths[i] = filepath.Join(assetDir, frame)
+	}
+
+	opts := ApplyOverrides(optionsFromConfig(a.Render), overrides)
+	frames, err := RenderFrames(framePaths, opts)
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	return frames, a.Floater.IntervalMs, pos, nil
+}
+
+// PreviewIcon renders and displays a single icon from an icon asset.
+func (m *Manager) PreviewIcon(name string, iconKey string) error {
+	return m.PreviewIconWithOverrides(name, iconKey, RenderOverrides{})
+}
+
+// PreviewIconWithOverrides is like PreviewIcon but applies runtime
+// render overrides.
+func (m *Manager) PreviewIconWithOverrides(name string, iconKey string, overrides RenderOverrides) error {
+	a, assetDir, err := m.Get(name, AssetTypeIcon)
+	if err != nil {
+		return err
+	}
+
+	if a.Icon == nil {
+		return fmt.Errorf("asset '%s' has no icon config", name)
+	}
+
+	file, ok := a.Icon.Files[iconKey]
+	if !ok {
+		return fmt.Errorf("icon key '%s' not found in asset '%s'", iconKey, name)
+	}
+
+	iconPath := filepath.Join(assetDir, file)
+	opts := ApplyOverrides(optionsFromConfig(a.Render), overrides)
+
+	rendered, err := Render(iconPath, opts)
+	if err != nil {
+		return fmt.Errorf("could not render icon: %w", err)
+	}
+
+	fmt.Printf("  %s: %s", iconKey, rendered)
+	return nil
+}
+
+// RenderRaw renders any image file directly through the chafa pipeline
+// with the given options, without requiring an asset manifest. This is
+// the low-level API for developers who want to test images or build
+// their own tooling on top of cmdX's render pipeline.
+func RenderRaw(imagePath string, opts ChafaOptions) (string, error) {
+	return Render(imagePath, opts)
+}
+
+// copyDir recursively copies a directory tree.
 func copyDir(src string, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -214,106 +393,189 @@ func copyDir(src string, dst string) error {
 	})
 }
 
-// PreviewBanner renders and displays a banner asset
-func (m *Manager) PreviewBanner(name string) error {
-	a, assetDir, err := m.Get(name, AssetTypeBanner)
+// PreviewMascot renders and displays the mascot in its current resolved
+// state based on the provided context.
+func (m *Manager) PreviewMascot(name string, ctx MascotContext, overrides RenderOverrides) error {
+	a, assetDir, err := m.Get(name, AssetTypeMascot)
 	if err != nil {
 		return err
 	}
-
-	if a.Banner == nil {
-		return fmt.Errorf("asset '%s' has no banner config", name)
+	if a.Mascot == nil {
+		return fmt.Errorf("asset '%s' has no mascot config", name)
 	}
 
-	bannerPath := filepath.Join(assetDir, a.Banner.File)
-
-	opts := ChafaOptions{
-		Mode:      a.Render.Mode,
-		ColorMode: a.Render.ColorMode,
-		SymbolSet: a.Render.SymbolSet,
-		Width:     a.Render.Width,
-		Height:    a.Render.Height,
-		Dither:    a.Render.Dither,
-		Stretch:   a.Render.Stretch,
-		Threshold: a.Render.Threshold,
-	}
-
-	rendered, err := Render(bannerPath, opts)
+	state := ResolveState(a.Mascot, ctx)
+	frames, transition, intervalMs, err := RenderMascotState(a, assetDir, state, overrides)
 	if err != nil {
-		return fmt.Errorf("could not render banner: %w", err)
+		return fmt.Errorf("could not render mascot state %q: %w", state, err)
 	}
 
-	fmt.Println(rendered)
+	fmt.Printf("  [mascot: %s | state: %s]\n\n", name, state)
+
+	// play transition frames once if present
+	for _, f := range transition {
+		fmt.Println(f)
+	}
+
+	// display first frame (for preview — not a live animation loop)
+	if len(frames) > 0 {
+		fmt.Println(frames[0])
+	}
+
+	_ = intervalMs
 	return nil
 }
 
-// PreviewDivider renders and displays a divider asset
-func (m *Manager) PreviewDivider(name string) error {
-	a, assetDir, err := m.Get(name, AssetTypeDivider)
+// ResolveMascotState resolves and returns the current mascot state name
+// without rendering anything. Useful for shell hooks and state display.
+func (m *Manager) ResolveMascotState(name string, ctx MascotContext) (MascotState, error) {
+	a, _, err := m.Get(name, AssetTypeMascot)
+	if err != nil {
+		return "", err
+	}
+	if a.Mascot == nil {
+		return "", fmt.Errorf("asset '%s' has no mascot config", name)
+	}
+	return ResolveState(a.Mascot, ctx), nil
+}
+
+// MascotHooks returns the shell hook code for a mascot asset, ready to
+// be injected into the user's shell profile.
+func (m *Manager) MascotHooks(name string, shell string) (string, error) {
+	a, _, err := m.Get(name, AssetTypeMascot)
+	if err != nil {
+		return "", err
+	}
+	if a.Mascot == nil {
+		return "", fmt.Errorf("asset '%s' has no mascot config", name)
+	}
+
+	hookVar := a.Mascot.HookVar
+	if hookVar == "" {
+		hookVar = "CMDX_MASCOT_TRIGGER"
+	}
+
+	hooks := MascotShellHooks(name, hookVar, shell)
+	if hooks == "" {
+		return "", fmt.Errorf("unsupported shell %q for mascot hooks", shell)
+	}
+	return hooks, nil
+}
+
+// PreviewStatusBar prints the shell code for a status bar asset — since
+// a status bar is a shell function, not a rendered image, preview shows
+// the generated code and a visual mockup of the segments.
+func (m *Manager) PreviewStatusBar(name string, shell string, colors map[string]string) error {
+	a, _, err := m.Get(name, AssetTypeStatusBar)
 	if err != nil {
 		return err
 	}
-
-	if a.Divider == nil {
-		return fmt.Errorf("asset '%s' has no divider config", name)
+	if a.StatusBar == nil {
+		return fmt.Errorf("asset '%s' has no status_bar config", name)
 	}
 
-	dividerPath := filepath.Join(assetDir, a.Divider.File)
+	sb := a.StatusBar
 
-	opts := ChafaOptions{
-		Mode:      a.Render.Mode,
-		ColorMode: a.Render.ColorMode,
-		SymbolSet: a.Render.SymbolSet,
-		Width:     a.Render.Width,
-		Height:    a.Render.Height,
-		Dither:    a.Render.Dither,
-		Stretch:   a.Render.Stretch,
-		Threshold: a.Render.Threshold,
+	// print visual mockup
+	fmt.Printf("\n  Status Bar: %s\n", name)
+	fmt.Printf("  Position:   %s\n", sb.Position)
+	fmt.Printf("  Separator:  %s\n", sb.SeparatorStyle)
+	fmt.Printf("  Segments:   %d total\n\n", len(sb.Segments))
+
+	left, center, right := segmentsByZone(sb)
+	sepL, _ := separatorGlyphs(sb.SeparatorStyle, sb.CustomSeparatorLeft, sb.CustomSeparatorRight)
+
+	// visual mockup line
+	var leftParts, centerParts, rightParts []string
+	for _, seg := range left {
+		leftParts = append(leftParts, segmentMockup(seg))
+	}
+	for _, seg := range center {
+		centerParts = append(centerParts, segmentMockup(seg))
+	}
+	for _, seg := range right {
+		rightParts = append(rightParts, segmentMockup(seg))
 	}
 
-	rendered, err := Render(dividerPath, opts)
-	if err != nil {
-		return fmt.Errorf("could not render divider: %w", err)
+	leftStr := strings.Join(leftParts, sepL)
+	centerStr := strings.Join(centerParts, sepL)
+	rightStr := strings.Join(rightParts, sepL)
+
+	fmt.Printf("  ┌─ Visual Mockup ─────────────────────────────────────────────┐\n")
+	fmt.Printf("  │ %-25s %-15s %20s │\n", leftStr, centerStr, rightStr)
+	fmt.Printf("  └─────────────────────────────────────────────────────────────┘\n\n")
+
+	// print generated shell code
+	if shell != "" {
+		fmt.Printf("  Generated %s code:\n\n", shell)
+		code := StatusBarShellCode(sb, colors, shell)
+		if code == "" {
+			fmt.Printf("  (unsupported shell: %s)\n", shell)
+		} else {
+			fmt.Println(code)
+		}
+	} else {
+		fmt.Printf("  Run with --shell bash|zsh|powershell to see generated hook code.\n")
 	}
 
-	fmt.Println(rendered)
 	return nil
 }
 
-// PreviewIcon renders and displays a single icon from an icon asset
-func (m *Manager) PreviewIcon(name string, iconKey string) error {
-	a, assetDir, err := m.Get(name, AssetTypeIcon)
+// StatusBarHooks returns the shell hook code for a status bar asset,
+// ready to be injected into the user's shell profile.
+func (m *Manager) StatusBarHooks(name string, shell string, colors map[string]string) (string, error) {
+	a, _, err := m.Get(name, AssetTypeStatusBar)
 	if err != nil {
-		return err
+		return "", err
+	}
+	if a.StatusBar == nil {
+		return "", fmt.Errorf("asset '%s' has no status_bar config", name)
 	}
 
-	if a.Icon == nil {
-		return fmt.Errorf("asset '%s' has no icon config", name)
+	code := StatusBarShellCode(a.StatusBar, colors, shell)
+	if code == "" {
+		return "", fmt.Errorf("unsupported shell %q for status bar hooks", shell)
 	}
+	return code, nil
+}
 
-	file, ok := a.Icon.Files[iconKey]
-	if !ok {
-		return fmt.Errorf("icon key '%s' not found in asset '%s'", iconKey, name)
+// segmentMockup returns a human-readable placeholder for a segment in the preview.
+func segmentMockup(seg SegmentConfig) string {
+	label := seg.Label
+	switch seg.Type {
+	case SegmentGit:
+		return label + "main*"
+	case SegmentDirectory:
+		return label + "~/projects"
+	case SegmentTime:
+		return label + "14:32"
+	case SegmentDate:
+		return label + "2026-07-04"
+	case SegmentExitCode:
+		return label + "✗127"
+	case SegmentDuration:
+		return label + "⏱2.3s"
+	case SegmentUser:
+		return label + "$USER"
+	case SegmentHost:
+		return label + "hostname"
+	case SegmentVirtualEnv:
+		return label + "(venv)"
+	case SegmentGoVersion:
+		return label + "go1.22"
+	case SegmentNodeVersion:
+		return label + "node20"
+	case SegmentKubernetes:
+		return label + "⎈prod"
+	case SegmentBattery:
+		return label + "🔋85%"
+	case SegmentText:
+		return seg.Format
+	case SegmentEnvVar:
+		return label + "$" + seg.EnvVar
+	case SegmentCommand:
+		return label + "(cmd)"
+	default:
+		return label + string(seg.Type)
 	}
-
-	iconPath := filepath.Join(assetDir, file)
-
-	opts := ChafaOptions{
-		Mode:      a.Render.Mode,
-		ColorMode: a.Render.ColorMode,
-		SymbolSet: a.Render.SymbolSet,
-		Width:     a.Render.Width,
-		Height:    a.Render.Height,
-		Dither:    a.Render.Dither,
-		Stretch:   a.Render.Stretch,
-		Threshold: a.Render.Threshold,
-	}
-
-	rendered, err := Render(iconPath, opts)
-	if err != nil {
-		return fmt.Errorf("could not render icon: %w", err)
-	}
-
-	fmt.Printf("  %s: %s", iconKey, rendered)
-	return nil
 }

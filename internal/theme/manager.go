@@ -89,29 +89,30 @@ func (m *Manager) Exists(name string) bool {
 }
 
 // ResolveColor maps a color key like "primary" to its hex value
-// from the active theme
+// from the active theme. Unlike config.ResolveColor, this returns an
+// error for unrecognized keys rather than passing them through —
+// callers of Manager.ResolveColor expect strict validation.
 func (m *Manager) ResolveColor(key string) (string, error) {
 	theme, err := m.GetActive()
 	if err != nil {
 		return "", err
 	}
 
-	c := theme.Colors
-	colorMap := map[string]string{
-		"primary":    c.Primary,
-		"secondary":  c.Secondary,
-		"background": c.Background,
-		"foreground": c.Foreground,
-		"accent":     c.Accent,
-		"error":      c.Error,
-		"success":    c.Success,
-		"warning":    c.Warning,
-		"muted":      c.Muted,
-	}
-
-	val, ok := colorMap[key]
-	if !ok {
+	if !isKnownColorKey(key) {
 		return "", fmt.Errorf("unknown color key: '%s'", key)
 	}
-	return val, nil
+
+	return config.ResolveColor(theme.Colors, key), nil
+}
+
+// isKnownColorKey reports whether key is one of the recognized semantic
+// color names (as opposed to a raw hex string or typo).
+func isKnownColorKey(key string) bool {
+	switch key {
+	case "primary", "secondary", "background", "foreground",
+		"accent", "error", "success", "warning", "muted":
+		return true
+	default:
+		return false
+	}
 }

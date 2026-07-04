@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "name": "ocean",
+    "version": "1.0.0",
+    "author": "abhigyanwebber",
+    "description": "Deep ocean blues and teals"
+  },
+  "colors": {
+    "primary":    "#00B4D8",
+    "secondary":  "#0077B6",
+    "background": "#03045E",
+    "foreground": "#CAF0F8",
+    "accent":     "#90E0EF",
+    "error":      "#FF6B6B",
+    "success":    "#00F5D4",
+    "warning":    "#FFD166",
+    "muted":      "#023E8A"
+  },
+  "prompt": {
+    "symbol": "≈",
+    "separator": "›",
+    "style": "single",
+    "segments": ["directory", "git"],
+    "format": "{dir} {git} {symbol} "
+  },
+  "loader": {
+    "frames": ["🌊","🌊 ","🌊  ","🌊   ","🌊  ","🌊 "],
+    "interval_ms": 150,
+    "color": "primary"
+  },
+  "progress_bar": {
+    "filled": "█",
+    "empty":  "░",
+    "width":  40,
+    "color":  "primary"
+  },
+  "cursor": {
+    "style": "bar",
+    "blink": true,
+    "color": "accent"
+  },
+  "borders": {
+    "style": "rounded",
+    "chars": {
+      "top_left":     "╭",
+      "top_right":    "╮",
+      "bottom_left":  "╰",
+      "bottom_right": "╯",
+      "horizontal":   "─",
+      "vertical":     "│"
+    }
+  },
+  "banner": {
+    "enabled": true,
+    "text":    "DEEP OCEAN // {user}",
+    "style":   "plain",
+    "color":   "primary"
+  },
+  "graphics": {
+    "gradient": {
+      "enabled": true,
+      "from": "#00B4D8",
+      "to": "#03045E",
+      "direction": "horizontal"
+    },
+    "divider": {
+      "style": "wave",
+      "color": "#00B4D8"
+    },
+    "effects": {
+      "banner": "neon",
+      "prompt": "none"
+    },
+    "icons": {
+      "enabled": true,
+      "directory": "󰉋",
+      "git_branch": "",
+      "error": "",
+      "success": "",
+      "time": ""
+    }
+  }
+}

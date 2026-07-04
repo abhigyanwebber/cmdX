@@ -1,3 +1,6 @@
+// Package powershell implements the shells.Shell interface for
+// PowerShell, injecting cmdX theme configuration into the user's
+// PowerShell profile script.
 package powershell
 
 import (
@@ -10,21 +13,28 @@ import (
 	"github.com/abhigyanwebber/cmd-customizer/internal/shells"
 )
 
+// PowerShell implements shells.Shell for Windows PowerShell / PowerShell 7+.
 type PowerShell struct{}
 
+// New creates a new PowerShell shell handler.
 func New() *PowerShell {
 	return &PowerShell{}
 }
 
+// Name returns the shell identifier "powershell".
 func (p *PowerShell) Name() string {
 	return "powershell"
 }
 
+// Detect reports whether PowerShell is the active shell, based on the
+// presence of the $PSModulePath environment variable.
 func (p *PowerShell) Detect() bool {
 	_, exists := os.LookupEnv("PSModulePath")
 	return exists
 }
 
+// ProfilePath returns the path to the user's
+// Microsoft.PowerShell_profile.ps1 file under Documents\PowerShell.
 func (p *PowerShell) ProfilePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -33,6 +43,9 @@ func (p *PowerShell) ProfilePath() (string, error) {
 	return filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"), nil
 }
 
+// Inject writes the theme's prompt, banner, and color variables into the
+// PowerShell profile, replacing any previous cmdx injection first.
+// Creates the profile directory if it doesn't already exist.
 func (p *PowerShell) Inject(t *config.Theme) error {
 	path, err := p.ProfilePath()
 	if err != nil {
@@ -65,6 +78,7 @@ func (p *PowerShell) Inject(t *config.Theme) error {
 	return nil
 }
 
+// Remove strips any cmdx-injected block from the PowerShell profile.
 func (p *PowerShell) Remove() error {
 	path, err := p.ProfilePath()
 	if err != nil {
@@ -80,6 +94,9 @@ func (p *PowerShell) Remove() error {
 	return os.WriteFile(path, []byte(cleaned), 0644)
 }
 
+// IsInjected reports whether a cmdx theme block is currently present in
+// the PowerShell profile. A missing or unreadable profile is treated as
+// "not injected" rather than an error.
 func (p *PowerShell) IsInjected() (bool, error) {
 	path, err := p.ProfilePath()
 	if err != nil {
@@ -94,13 +111,25 @@ func (p *PowerShell) IsInjected() (bool, error) {
 	return strings.Contains(string(data), shells.InjectStart), nil
 }
 
+// buildPowerShellBlock renders the full injected PowerShell config block
+// for a theme: color variables, custom prompt function, and startup banner.
+//
+// All free-text theme fields (name, author, description, prompt symbol)
+// pass through shells.SanitizeForShell first, since theme JSON may come
+// from an untrusted source (the community registry or a shared file)
+// and is otherwise embedded directly into double-quoted Write-Host
+// strings, where "$(...)" would trigger PowerShell subexpression
+// evaluation.
 func buildPowerShellBlock(t *config.Theme) string {
 	primary := t.Colors.Primary
 	accent := t.Colors.Accent
 	success := t.Colors.Success
 	errorCol := t.Colors.Error
 	muted := t.Colors.Muted
-	symbol := t.Prompt.Symbol
+	symbol := shells.SanitizeForShell(t.Prompt.Symbol)
+	name := shells.SanitizeForShell(t.Meta.Name)
+	author := shells.SanitizeForShell(t.Meta.Author)
+	description := shells.SanitizeForShell(t.Meta.Description)
 
 	return fmt.Sprintf(`%s
 # Theme: %s by %s
@@ -134,15 +163,17 @@ Write-Host "  %s" -ForegroundColor DarkGray
 Write-Host ""
 %s`,
 		shells.InjectStart,
-		t.Meta.Name, t.Meta.Author,
+		name, author,
 		primary, accent, success, errorCol, muted,
 		symbol,
 		"SYSTEM ONLINE //",
-		t.Meta.Description,
+		description,
 		shells.InjectEnd,
 	)
 }
 
+// removeInjection strips every cmdx-marked block from content, including
+// repeated/stale injections from prior runs.
 func removeInjection(content string) string {
 	for {
 		start := strings.Index(content, shells.InjectStart)

@@ -51,7 +51,7 @@ var pluginListCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("\n  Installed Plugins:\n")
+		fmt.Println("\n  Installed Plugins:")
 		for _, name := range names {
 			p, _ := m.Get(name)
 			fmt.Printf("  %-20s  %s\n", p.Meta.Name, p.Meta.Description)

@@ -34,6 +34,8 @@ GitHub: https://github.com/abhigyanwebber/cmdX`,
 	},
 }
 
+// Execute runs the root cobra command, printing any error to stderr and
+// exiting with a non-zero status on failure. Called from main().
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

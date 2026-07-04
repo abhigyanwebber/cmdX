@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 REPO="https://github.com/abhigyanwebber/cmd-customizer"
 INSTALL_DIR="$HOME/.cmdx"

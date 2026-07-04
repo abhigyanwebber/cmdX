@@ -33,7 +33,7 @@ var configShowCmd = &cobra.Command{
 
 		configDir, _ := config.ConfigDir()
 
-		fmt.Println("\n  cmdX Global Configuration\n")
+		fmt.Println("\n  cmdX Global Configuration")
 		fmt.Printf("  Config dir:    %s\n", configDir)
 		fmt.Printf("  Default theme: %s\n", cfg.DefaultTheme)
 		fmt.Printf("  Render mode:   %s\n", cfg.RenderMode)

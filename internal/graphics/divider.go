@@ -5,8 +5,11 @@ import (
 	"strings"
 )
 
+// DividerStyle identifies a horizontal divider line style usable in
+// theme previews and section separators.
 type DividerStyle string
 
+// Available divider styles.
 const (
 	StyleLine   DividerStyle = "line"
 	StyleWave   DividerStyle = "wave"

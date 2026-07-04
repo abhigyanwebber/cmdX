@@ -1,54 +1,19 @@
+// Theme commands: list, apply, info, validate, preview, inject, remove.
+// Shared helpers (detectShell, getThemesDir, loadThemeOrExit) live in
+// cmd/helpers.go since they're also used by create.go, edit.go, and
+// registry.go.
 package main
 
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/abhigyanwebber/cmd-customizer/internal/config"
 	"github.com/abhigyanwebber/cmd-customizer/internal/preview"
-	"github.com/abhigyanwebber/cmd-customizer/internal/shells"
-	"github.com/abhigyanwebber/cmd-customizer/internal/shells/bash"
-	"github.com/abhigyanwebber/cmd-customizer/internal/shells/powershell"
-	"github.com/abhigyanwebber/cmd-customizer/internal/shells/zsh"
 	"github.com/abhigyanwebber/cmd-customizer/internal/theme"
+	"github.com/abhigyanwebber/cmd-customizer/internal/tui"
 	"github.com/spf13/cobra"
 )
-
-// detectShell auto-detects the running shell and returns the right implementation
-func detectShell() (shells.Shell, string) {
-	ps := powershell.New()
-	if ps.Detect() {
-		return ps, "powershell"
-	}
-
-	z := zsh.New()
-	if z.Detect() {
-		return z, "zsh"
-	}
-
-	b := bash.New()
-	if b.Detect() {
-		return b, "bash"
-	}
-
-	return nil, ""
-}
-
-// getThemesDir resolves themes directory relative to binary or dev working dir
-func getThemesDir() string {
-	// in dev, use working directory
-	wd, err := os.Getwd()
-	if err == nil {
-		local := filepath.Join(wd, "themes")
-		if _, err := os.Stat(local); err == nil {
-			return local
-		}
-	}
-	// fallback to binary location
-	exe, _ := os.Executable()
-	return filepath.Join(filepath.Dir(exe), "themes")
-}
 
 var themeCmd = &cobra.Command{
 	Use:   "theme",
@@ -74,17 +39,51 @@ var themeListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Println("\n Available Themes:\n")
-		for _, name := range names {
-			t, err := m.Load(name)
-			if err != nil {
-				fmt.Printf("  %-15s  (invalid)\n", name)
-				continue
-			}
-			fmt.Printf("  %-15s  %s\n", name, t.Meta.Description)
+		items := buildThemeListItems(m, names)
+
+		chosen, err := tui.RunThemeList(items, "#FF00FF", "#00FFFF", "#444444")
+		if err != nil {
+			printPlainThemeList(items)
+			return
 		}
-		fmt.Println()
+
+		if chosen != "" {
+			fmt.Printf("\n  Selected: %s\n", chosen)
+			fmt.Printf("  Run: cmdx theme apply %s\n\n", chosen)
+		}
 	},
+}
+
+// buildThemeListItems loads each theme's metadata for display in the
+// interactive picker, falling back to a placeholder description for
+// themes that fail to load/validate rather than dropping them silently.
+func buildThemeListItems(m *theme.Manager, names []string) []tui.ThemeItem {
+	items := make([]tui.ThemeItem, 0, len(names))
+	for _, name := range names {
+		t, err := m.Load(name)
+		desc := "(invalid theme)"
+		author := ""
+		if err == nil {
+			desc = t.Meta.Description
+			author = t.Meta.Author
+		}
+		items = append(items, tui.ThemeItem{
+			Name:   name,
+			Desc:   desc,
+			Author: author,
+		})
+	}
+	return items
+}
+
+// printPlainThemeList is the non-interactive fallback used when the TUI
+// list picker can't run (e.g. no TTY).
+func printPlainThemeList(items []tui.ThemeItem) {
+	fmt.Println("\n  Available Themes:")
+	for _, it := range items {
+		fmt.Printf("  %-20s  %s\n", it.Name, it.Desc)
+	}
+	fmt.Println()
 }
 
 var themeApplyCmd = &cobra.Command{
@@ -121,20 +120,7 @@ var themeInfoCmd = &cobra.Command{
 	Short: "Show detailed info about a theme",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		name := args[0]
-
-		m, err := theme.NewManager(getThemesDir())
-		if err != nil {
-			fmt.Println("✗ Error:", err)
-			os.Exit(1)
-		}
-
-		t, err := m.Load(name)
-		if err != nil {
-			fmt.Println("✗ Error:", err)
-			os.Exit(1)
-		}
-
+		_, t := loadThemeOrExit(args[0])
 		r := theme.NewRenderer(t)
 		r.RenderThemeInfo()
 	},
@@ -167,22 +153,10 @@ var themePreviewCmd = &cobra.Command{
 	Short: "Live preview of a theme before applying",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		name := args[0]
-
-		m, err := theme.NewManager(getThemesDir())
-		if err != nil {
-			fmt.Println("✗ Error:", err)
-			os.Exit(1)
-		}
-
-		t, err := m.Load(name)
-		if err != nil {
-			fmt.Println("✗ Error:", err)
-			os.Exit(1)
-		}
-
+		_, t := loadThemeOrExit(args[0])
 		p := preview.NewPreview(t)
 		p.Run()
+		showActiveFloaters()
 	},
 }
 
@@ -191,19 +165,7 @@ var themeInjectCmd = &cobra.Command{
 	Short: "Inject a theme into your shell config (persists after restart)",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		name := args[0]
-
-		m, err := theme.NewManager(getThemesDir())
-		if err != nil {
-			fmt.Println("✗ Error:", err)
-			os.Exit(1)
-		}
-
-		t, err := m.Load(name)
-		if err != nil {
-			fmt.Println("✗ Error:", err)
-			os.Exit(1)
-		}
+		_, t := loadThemeOrExit(args[0])
 
 		shell, shellName := detectShell()
 		if shell == nil {
@@ -216,7 +178,7 @@ var themeInjectCmd = &cobra.Command{
 
 		injected, _ := shell.IsInjected()
 		if injected {
-			fmt.Printf("! Theme already injected. Overwriting with '%s'...\n", name)
+			fmt.Printf("! Theme already injected. Overwriting with '%s'...\n", args[0])
 		}
 
 		if err := shell.Inject(t); err != nil {
@@ -225,7 +187,7 @@ var themeInjectCmd = &cobra.Command{
 		}
 
 		path, _ := shell.ProfilePath()
-		fmt.Printf("✓ Theme '%s' injected into %s\n", name, path)
+		fmt.Printf("✓ Theme '%s' injected into %s\n", args[0], path)
 		fmt.Println("  Restart your terminal to see changes.")
 	},
 }
@@ -264,7 +226,7 @@ func init() {
 	themeCmd.AddCommand(themeInfoCmd)
 	themeCmd.AddCommand(themeValidateCmd)
 	themeCmd.AddCommand(themePreviewCmd)
-	rootCmd.AddCommand(themeCmd)
 	themeCmd.AddCommand(themeInjectCmd)
 	themeCmd.AddCommand(themeRemoveCmd)
+	rootCmd.AddCommand(themeCmd)
 }

@@ -1,3 +1,5 @@
+// Package zsh implements the shells.Shell interface for zsh, injecting
+// cmdX theme configuration into ~/.zshrc.
 package zsh
 
 import (
@@ -10,21 +12,27 @@ import (
 	"github.com/abhigyanwebber/cmd-customizer/internal/shells"
 )
 
+// Zsh implements shells.Shell for the zsh shell.
 type Zsh struct{}
 
+// New creates a new Zsh shell handler.
 func New() *Zsh {
 	return &Zsh{}
 }
 
+// Name returns the shell identifier "zsh".
 func (z *Zsh) Name() string {
 	return "zsh"
 }
 
+// Detect reports whether zsh is the user's currently configured shell,
+// based on the $SHELL environment variable.
 func (z *Zsh) Detect() bool {
 	shell := os.Getenv("SHELL")
 	return strings.Contains(shell, "zsh")
 }
 
+// ProfilePath returns the path to the user's ~/.zshrc file.
 func (z *Zsh) ProfilePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -33,6 +41,8 @@ func (z *Zsh) ProfilePath() (string, error) {
 	return filepath.Join(home, ".zshrc"), nil
 }
 
+// Inject writes the theme's prompt, banner, and color exports into
+// ~/.zshrc, replacing any previous cmdx injection first.
 func (z *Zsh) Inject(t *config.Theme) error {
 	path, err := z.ProfilePath()
 	if err != nil {
@@ -51,6 +61,7 @@ func (z *Zsh) Inject(t *config.Theme) error {
 	return os.WriteFile(path, []byte(final), 0644)
 }
 
+// Remove strips any cmdx-injected block from ~/.zshrc.
 func (z *Zsh) Remove() error {
 	path, err := z.ProfilePath()
 	if err != nil {
@@ -66,6 +77,9 @@ func (z *Zsh) Remove() error {
 	return os.WriteFile(path, []byte(cleaned), 0644)
 }
 
+// IsInjected reports whether a cmdx theme block is currently present in
+// ~/.zshrc. A missing or unreadable profile is treated as "not injected"
+// rather than an error.
 func (z *Zsh) IsInjected() (bool, error) {
 	path, err := z.ProfilePath()
 	if err != nil {
@@ -80,11 +94,22 @@ func (z *Zsh) IsInjected() (bool, error) {
 	return strings.Contains(string(data), shells.InjectStart), nil
 }
 
+// buildZshBlock renders the full injected zsh config block for a theme:
+// prompt function, git branch helper, startup banner, and color exports.
+//
+// All free-text theme fields (name, author, description, banner text,
+// prompt symbol) pass through shells.SanitizeForShell first, since theme
+// JSON may come from an untrusted source (the community registry or a
+// shared file) and is otherwise embedded directly into this script.
 func buildZshBlock(t *config.Theme) string {
 	primary := hexToAnsi(t.Colors.Primary)
 	accent := hexToAnsi(t.Colors.Accent)
 	muted := hexToAnsi(t.Colors.Muted)
-	symbol := t.Prompt.Symbol
+	symbol := shells.SanitizeForShell(t.Prompt.Symbol)
+	name := shells.SanitizeForShell(t.Meta.Name)
+	author := shells.SanitizeForShell(t.Meta.Author)
+	bannerText := shells.SanitizeForShell(t.Banner.Text)
+	description := shells.SanitizeForShell(t.Meta.Description)
 
 	promptStyle := "single"
 	if t.Prompt.Style == "multiline" {
@@ -130,10 +155,10 @@ export CMDX_SUCCESS="%s"
 export CMDX_MUTED="%s"
 %s`,
 		shells.InjectStart,
-		t.Meta.Name, t.Meta.Author,
+		name, author,
 		promptLine,
-		hexToRgbAnsi(t.Colors.Primary), t.Banner.Text,
-		hexToRgbAnsi(t.Colors.Muted), t.Meta.Description,
+		hexToRgbAnsi(t.Colors.Primary), bannerText,
+		hexToRgbAnsi(t.Colors.Muted), description,
 		t.Colors.Primary,
 		t.Colors.Accent,
 		t.Colors.Success,
@@ -142,16 +167,18 @@ export CMDX_MUTED="%s"
 	)
 }
 
-// hexToAnsi converts a hex color to a zsh-compatible color name or 256-color code
+// hexToAnsi converts a hex color to a zsh-compatible 256-color index
+// (returned as a string), or "white" if the hex string is malformed.
 func hexToAnsi(hex string) string {
-	// strip #
 	hex = strings.TrimPrefix(hex, "#")
 	if len(hex) != 6 {
 		return "white"
 	}
 
 	var r, g, b int
-	fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b)
+	if _, err := fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b); err != nil {
+		return "white"
+	}
 
 	// convert to 256-color xterm index
 	if r == g && g == b {
@@ -171,17 +198,22 @@ func hexToAnsi(hex string) string {
 	return fmt.Sprintf("%d", 16+36*r256+6*g256+b256)
 }
 
-// hexToRgbAnsi returns R;G;B string for use in \033[38;2;R;G;Bm escape codes
+// hexToRgbAnsi returns "R;G;B" for use in \033[38;2;R;G;Bm true-color
+// escape codes, or "255;255;255" (white) if the hex string is malformed.
 func hexToRgbAnsi(hex string) string {
 	hex = strings.TrimPrefix(hex, "#")
 	if len(hex) != 6 {
 		return "255;255;255"
 	}
 	var r, g, b int
-	fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b)
+	if _, err := fmt.Sscanf(hex, "%02x%02x%02x", &r, &g, &b); err != nil {
+		return "255;255;255"
+	}
 	return fmt.Sprintf("%d;%d;%d", r, g, b)
 }
 
+// removeInjection strips every cmdx-marked block from content, including
+// repeated/stale injections from prior runs.
 func removeInjection(content string) string {
 	for {
 		start := strings.Index(content, shells.InjectStart)

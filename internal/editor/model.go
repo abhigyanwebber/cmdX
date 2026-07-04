@@ -2,15 +2,35 @@ package editor
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/abhigyanwebber/cmd-customizer/internal/config"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/harmonica"
 	"github.com/charmbracelet/lipgloss"
 )
+
+const (
+	fps          = 60
+	springFreq   = 6.0  // oscillations per second — higher = snappier
+	springDamp   = 0.8  // 0=bouncy, 1=no bounce; 0.8 feels crisp
+	panelSpringF = 4.0  // slower spring for preview panel slide-in
+	panelSpringD = 0.9
+)
+
+// tickMsg drives the animation loop
+type tickMsg time.Time
+
+func tick() tea.Cmd {
+	return tea.Tick(time.Second/fps, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
 
 // Field represents one editable theme property
 type Field struct {
@@ -31,6 +51,18 @@ type Model struct {
 	message   string
 	width     int
 	height    int
+
+	// ── harmonica spring state ──────────────────────────
+	// cursor spring — animates the selector row highlight
+	cursorSpring harmonica.Spring
+	cursorPos    float64 // current animated position (fractional row index)
+	cursorVel    float64 // current velocity
+
+	// panel spring — animates preview panel sliding in on open
+	panelSpring  harmonica.Spring
+	panelOffset  float64 // 0 = fully visible, 1 = off-screen right
+	panelVel     float64
+	panelReady   bool // true once panel has animated in
 }
 
 // NewModel creates the editor model from a theme
@@ -41,10 +73,17 @@ func NewModel(t *config.Theme, path string) Model {
 	fields := buildFields(t)
 
 	return Model{
-		theme:     t,
-		themePath: path,
-		fields:    fields,
-		input:     ti,
+		theme:        t,
+		themePath:    path,
+		fields:       fields,
+		input:        ti,
+		cursorSpring: harmonica.NewSpring(harmonica.FPS(fps), springFreq, springDamp),
+		cursorPos:    0,
+		cursorVel:    0,
+		panelSpring:  harmonica.NewSpring(harmonica.FPS(fps), panelSpringF, panelSpringD),
+		panelOffset:  1, // start off-screen
+		panelVel:     0,
+		panelReady:   false,
 	}
 }
 
@@ -77,15 +116,35 @@ func buildFields(t *config.Theme) []Field {
 	}
 }
 
+// Init starts the harmonica animation loop (cursor spring + panel
+// slide-in) as soon as the editor opens. Satisfies tea.Model.
 func (m Model) Init() tea.Cmd {
-	return nil
+	// start animation loop immediately
+	return tick()
 }
 
+// Update handles key input and animation ticks, advancing the cursor and
+// panel springs each frame. Satisfies tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+
+	case tickMsg:
+		// advance cursor spring toward target (float of cursor index)
+		target := float64(m.cursor)
+		m.cursorPos, m.cursorVel = m.cursorSpring.Update(m.cursorPos, m.cursorVel, target)
+
+		// advance panel spring toward 0 (fully visible)
+		m.panelOffset, m.panelVel = m.panelSpring.Update(m.panelOffset, m.panelVel, 0)
+		if m.panelOffset < 0.01 {
+			m.panelOffset = 0
+			m.panelReady = true
+		}
+
+		return m, tick()
 
 	case tea.KeyMsg:
 		if m.editing {
@@ -112,6 +171,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "up", "k":
 				if m.cursor > 0 {
 					m.cursor--
+					// spring will chase new target on next tick
 				}
 			case "down", "j":
 				if m.cursor < len(m.fields)-1 {
@@ -135,6 +195,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// View renders the two-panel editor layout: the scrollable field list on
+// the left (with the spring-animated cursor highlight) and the live theme
+// preview on the right (with the spring-animated slide-in). Satisfies
+// tea.Model.
 func (m Model) View() string {
 	if m.width == 0 {
 		return "Loading editor..."
@@ -175,6 +239,9 @@ func (m Model) View() string {
 	title := titleStyle.Render(fmt.Sprintf("cmdX Theme Editor — %s", m.theme.Meta.Name))
 
 	// ── Fields panel ───────────────────────────────────
+	// animated cursor row: round the spring position for highlight
+	animatedRow := int(math.Round(m.cursorPos))
+
 	var fieldLines []string
 	visibleStart := 0
 	visibleCount := 18
@@ -185,19 +252,24 @@ func (m Model) View() string {
 
 	for i := visibleStart; i < len(m.fields) && i < visibleStart+visibleCount; i++ {
 		f := m.fields[i]
+
+		// use animated row for the highlight so it springs smoothly
+		isHighlighted := i == animatedRow
+		isCursor := i == m.cursor
+
 		prefix := "  "
-		if i == m.cursor {
+		if isHighlighted {
 			prefix = "▶ "
 		}
 
 		var line string
-		if i == m.cursor && m.editing {
+		if isCursor && m.editing {
 			line = fmt.Sprintf("%s%s  %s",
 				prefix,
 				labelStyle.Render(f.Label+":"),
 				m.input.View(),
 			)
-		} else if i == m.cursor {
+		} else if isHighlighted {
 			line = selectedStyle.Render(fmt.Sprintf("%s%-22s  %s", prefix, f.Label+":", f.Value))
 		} else {
 			line = fmt.Sprintf("%s%s  %s",
@@ -212,11 +284,21 @@ func (m Model) View() string {
 	fieldsPanel := strings.Join(fieldLines, "\n")
 
 	// ── Preview panel ───────────────────────────────────
+	// apply panel spring offset as right-padding to simulate slide-in
 	preview := m.buildPreviewPanel(labelStyle, valueStyle, mutedStyle)
+
+	rightWidth := 35
+	// clamp panelOffset so padding doesn't go negative
+	panelPad := int(math.Round(m.panelOffset * float64(rightWidth)))
+	if panelPad < 0 {
+		panelPad = 0
+	}
+	if panelPad > rightWidth {
+		panelPad = rightWidth
+	}
 
 	// ── Layout ─────────────────────────────────────────
 	leftWidth := 45
-	rightWidth := 35
 
 	leftBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -232,17 +314,18 @@ func (m Model) View() string {
 		Width(rightWidth).
 		Height(22).
 		Padding(0, 1).
+		MarginLeft(panelPad). // spring-driven slide-in margin
 		Render(preview)
 
 	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "  ", rightBox)
 
 	// ── Message bar ────────────────────────────────────
-	msg := helpStyle.Render(m.message)
+	statusMsg := helpStyle.Render(m.message)
 	if m.message == "" {
-		msg = helpStyle.Render("[↑↓] Navigate  [Enter] Edit  [S] Save  [Q] Quit")
+		statusMsg = helpStyle.Render("[↑↓] Navigate  [Enter] Edit  [S] Save  [Q] Quit")
 	}
 
-	return fmt.Sprintf("%s\n%s\n%s", title, columns, msg)
+	return fmt.Sprintf("%s\n%s\n%s", title, columns, statusMsg)
 }
 
 func (m Model) buildPreviewPanel(labelStyle, valueStyle, mutedStyle lipgloss.Style) string {
@@ -362,7 +445,6 @@ func applyField(t *config.Theme, f Field) {
 }
 
 // saveTheme writes the updated theme back to JSON
-
 func saveTheme(t *config.Theme, path string) error {
 	data, err := marshalTheme(t)
 	if err != nil {

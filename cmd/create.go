@@ -17,7 +17,7 @@ var themeCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a new theme interactively",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("\n  cmdX Theme Creator\n")
+		fmt.Println("\n  cmdX Theme Creator")
 
 		// ── Step 1: Meta ──────────────────────────────
 		var name, author, description string

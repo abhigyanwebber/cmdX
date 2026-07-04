@@ -8,6 +8,7 @@ import (
 	"github.com/abhigyanwebber/cmd-customizer/internal/config"
 	"github.com/abhigyanwebber/cmd-customizer/internal/registry"
 	"github.com/abhigyanwebber/cmd-customizer/internal/render"
+	"github.com/abhigyanwebber/cmd-customizer/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -23,9 +24,14 @@ var registryListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all themes in the community registry",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("\n  Fetching registry...")
+		var index *registry.Index
 
-		index, err := registry.FetchIndex()
+		// spinner wraps the fetch
+		err := tui.RunSpinner("Fetching registry...", "#00FFFF", func() error {
+			var e error
+			index, e = registry.FetchIndex()
+			return e
+		})
 		if err != nil {
 			fmt.Println("✗ Error:", err)
 			fmt.Println("  Make sure you have an internet connection.")
@@ -37,6 +43,19 @@ var registryListCmd = &cobra.Command{
 			return
 		}
 
+		// build interactive list
+		items := make([]tui.RegistryItem, len(index.Themes))
+		for i, t := range index.Themes {
+			items[i] = tui.RegistryItem{
+				Name:    t.Name,
+				Author:  t.Author,
+				Desc:    t.Description,
+				Version: t.Version,
+				Tags:    t.Tags,
+			}
+		}
+
+		// show as glamour table — interactive browse is via `registry browse`
 		md := fmt.Sprintf("# Community Themes\n\n%d themes available · `cmdx registry fetch <name>` to download\n\n", len(index.Themes))
 		md += "| Name | Author | Description | Tags |\n"
 		md += "|------|--------|-------------|------|\n"
@@ -53,10 +72,59 @@ var registryListCmd = &cobra.Command{
 				tags,
 			)
 		}
-
 		md += fmt.Sprintf("\n_Updated: %s_\n", index.UpdatedAt)
-
 		render.Markdown(md)
+	},
+}
+
+var registryBrowseCmd = &cobra.Command{
+	Use:   "browse",
+	Short: "Interactively browse and select a theme from the registry",
+	Run: func(cmd *cobra.Command, args []string) {
+		var index *registry.Index
+
+		err := tui.RunSpinner("Fetching registry...", "#00FFFF", func() error {
+			var e error
+			index, e = registry.FetchIndex()
+			return e
+		})
+		if err != nil {
+			fmt.Println("✗ Error:", err)
+			os.Exit(1)
+		}
+
+		if len(index.Themes) == 0 {
+			fmt.Println("  No themes in registry yet.")
+			return
+		}
+
+		items := make([]tui.RegistryItem, len(index.Themes))
+		for i, t := range index.Themes {
+			items[i] = tui.RegistryItem{
+				Name:    t.Name,
+				Author:  t.Author,
+				Desc:    t.Description,
+				Version: t.Version,
+				Tags:    t.Tags,
+			}
+		}
+
+		// convert to ThemeItems for the list picker
+		themeItems := make([]tui.ThemeItem, len(items))
+		for i, it := range items {
+			themeItems[i] = tui.ThemeItem{
+				Name:   it.Name,
+				Desc:   it.Description(),
+				Author: it.Author,
+			}
+		}
+
+		chosen, err := tui.RunThemeList(themeItems, "#FF00FF", "#00FFFF", "#444444")
+		if err != nil || chosen == "" {
+			return
+		}
+
+		fmt.Printf("\n  Selected: %s\n  Run: cmdx registry fetch %s\n\n", chosen, chosen)
 	},
 }
 
@@ -67,9 +135,15 @@ var registryFetchCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
 
-		fmt.Printf("  Downloading theme '%s'...\n", name)
-
-		if err := registry.FetchTheme(name, getThemesDir()); err != nil {
+		// spinner wraps the download
+		err := tui.RunSpinner(
+			fmt.Sprintf("Downloading '%s'...", name),
+			"#00FFFF",
+			func() error {
+				return registry.FetchTheme(name, getThemesDir())
+			},
+		)
+		if err != nil {
 			fmt.Println("✗ Error:", err)
 			os.Exit(1)
 		}
@@ -100,9 +174,12 @@ var registrySearchCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		query := args[0]
 
-		fmt.Printf("\n  Searching registry for '%s'...\n\n", query)
-
-		index, err := registry.FetchIndex()
+		var index *registry.Index
+		err := tui.RunSpinner("Searching registry...", "#00FFFF", func() error {
+			var e error
+			index, e = registry.FetchIndex()
+			return e
+		})
 		if err != nil {
 			fmt.Println("✗ Error:", err)
 			os.Exit(1)
@@ -145,6 +222,7 @@ func orEmDash(s string) string {
 
 func init() {
 	registryCmd.AddCommand(registryListCmd)
+	registryCmd.AddCommand(registryBrowseCmd)
 	registryCmd.AddCommand(registryFetchCmd)
 	registryCmd.AddCommand(registrySearchCmd)
 	rootCmd.AddCommand(registryCmd)

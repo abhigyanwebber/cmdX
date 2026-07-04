@@ -1,7 +1,12 @@
+// Package assets handles loading, validating, and resolving file paths
+// for PNG-based terminal assets (spinners, icons, banners, dividers)
+// used by cmdX themes, plus rendering them to terminal output via the
+// external chafa tool.
 package assets
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -39,10 +44,47 @@ func ChafaVersion() (string, error) {
 	return "", nil
 }
 
+// validateImagePath ensures imagePath refers to a real, regular file
+// that can be safely passed as a positional argument to the external
+// chafa process.
+//
+// This guards against two related risks: (1) argument injection, where
+// a path beginning with "-" (e.g. an asset accidentally or maliciously
+// named "-o/etc/passwd") could be misinterpreted by chafa's argument
+// parser as a flag rather than a filename, and (2) passing a
+// non-existent or non-regular path (directory, device, symlink to a
+// pipe, etc.) through to the subprocess unchecked. Asset file names
+// ultimately derive from theme/plugin JSON, which may be downloaded
+// from the community registry, so this validation applies even though
+// chafa is invoked via exec.Command's argv slice (which already avoids
+// shell interpretation).
+func validateImagePath(imagePath string) error {
+	if imagePath == "" {
+		return fmt.Errorf("image path is empty")
+	}
+	if strings.HasPrefix(imagePath, "-") {
+		return fmt.Errorf("image path %q must not start with '-' (would be misread as a flag)", imagePath)
+	}
+
+	info, err := os.Stat(imagePath)
+	if err != nil {
+		return fmt.Errorf("image path %q is not accessible: %w", imagePath, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("image path %q is not a regular file", imagePath)
+	}
+
+	return nil
+}
+
 // Render converts an image file to terminal output using chafa
 func Render(imagePath string, opts ChafaOptions) (string, error) {
 	if !ChafaAvailable() {
 		return "", fmt.Errorf("chafa is not installed. Install it with: winget install hpjansson.chafa")
+	}
+
+	if err := validateImagePath(imagePath); err != nil {
+		return "", fmt.Errorf("invalid image path: %w", err)
 	}
 
 	args := buildChafaArgs(imagePath, opts)
@@ -138,7 +180,12 @@ func buildChafaArgs(imagePath string, opts ChafaOptions) []string {
 		}
 	}
 
-	args = append(args, imagePath)
+	// "--" tells chafa to treat everything after it as a positional
+	// argument, not a flag, even if imagePath happens to start with a
+	// character chafa's parser would otherwise read as an option. This
+	// is defense in depth alongside validateImagePath's leading-dash
+	// check in Render.
+	args = append(args, "--", imagePath)
 	return args
 }
 

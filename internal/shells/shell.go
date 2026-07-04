@@ -1,3 +1,7 @@
+// Package shells defines the cross-shell injection interface (Shell) and
+// shared safety helpers used by every concrete shell implementation
+// (bash, zsh, powershell) to write and remove cmdX theme configuration
+// from the user's profile script.
 package shells
 
 import "github.com/abhigyanwebber/cmd-customizer/internal/config"
