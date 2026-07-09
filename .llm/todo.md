@@ -114,10 +114,54 @@
 - [ ] Status bar (bottom info bar)
 
 ### 🔵 FUTURE — Major Features
-- [ ] Web theme builder
-- [ ] VS Code extension
-- [ ] Sound themes
-- [ ] Font installer
+- [x] Web theme builder (web-builder/) — Vite + vanilla TypeScript static
+      site, full theme.json schema exposed as editable controls (no
+      simplified subset), live terminal mockup preview with working
+      animations for all 5 banner effects (glitch/rainbow/pulse/neon/
+      typewriter) and real loader frame cycling at the real configured
+      speed, client-side validation mirroring internal/config/validator.go
+      so what passes here also passes `cmdx theme validate`, 4 built-in
+      presets (cyberpunk/ocean/minimal/forest), import/export/clipboard/
+      shareable-URL (theme base64-encoded in URL hash, no backend).
+      Verified with real `npm install`, `tsc --noEmit`, and `npm run build`
+      in sandbox (Node 22) — clean type-check, 10 modules built, ~7KB
+      gzipped JS.
+- [x] VS Code extension (vscode-extension/) — JSON schemas for theme.json
+      and asset.json matching the exact Go structs (all 12 theme sections,
+      all 7 asset types including mascot triggers and status bar segments),
+      webview theme preview panel (colors/gradient/prompt/banner/progress),
+      sidebar Themes + Assets tree views, commands wrapping the real cmdx
+      CLI (apply/validate/preview/create/font install) rather than
+      reimplementing logic — asset preview and theme create open a real
+      integrated terminal since chafa/sixel output can't be faithfully
+      reproduced in a webview. Added CMDX_THEMES_DIR/CMDX_ASSETS_DIR env
+      var support to cmd/helpers.go and cmd/asset.go so the extension's
+      directory settings actually take effect (was previously unsupported).
+      TypeScript compiles clean (tsc), zero ESLint warnings, verified in
+      sandbox with Node 22.
+- [x] Sound themes — AssetTypeSound, no chafa involved (genuinely
+      different mechanism: shells out to platform audio players —
+      afplay/paplay/aplay/ffplay/PowerShell SoundPlayer). Reuses the
+      exact mascot trigger vocabulary (exit_code/output_regex/env_var/
+      idle_time/git_status/command/always) via a type-bridge to
+      matchesTrigger rather than duplicating trigger-matching logic.
+      Per-effect volume, cooldown (persisted across process invocations
+      via .state/ files, since each shell hook call is a fresh cmdx
+      process), async/blocking playback modes, and a --url-equivalent
+      escape hatch (custom "player" command template) for any format/
+      player setup. CLI: asset sound-play/sound-info/sound-hooks, wired
+      into asset use/preview/create/info. VS Code extension asset
+      schema updated. REQUIREMENTS.md updated with audio player matrix.
+      internal/assets/sound.go + player.go + sound_test.go + player_test.go.
+- [x] Font installer — internal/fonts package: curated 10-font Nerd Fonts
+      catalog with search/find, safe zip extraction (zip-slip protection,
+      file count/size caps matching the security-audit discipline used
+      elsewhere), cross-platform install dirs (Windows/macOS/Linux),
+      Windows registry registration (build-tagged, golang.org/x/sys
+      moved from indirect to direct dependency), install state tracking
+      for clean removal, developer-freedom --url escape hatch for any
+      non-catalog font. CLI: cmdx font list/search/info/install/remove/
+      installed/path. Tests use httptest to avoid real network calls.
 
 ## Session Rules
 - Always: git push origin HEAD:main

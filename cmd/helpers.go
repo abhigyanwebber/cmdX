@@ -40,7 +40,17 @@ func detectShell() (shells.Shell, string) {
 // getThemesDir resolves the themes directory relative to either the
 // current working directory (dev mode) or the binary's own location
 // (installed mode).
+// getThemesDir resolves the themes directory. Resolution order:
+//  1. CMDX_THEMES_DIR environment variable, if set — lets external
+//     tooling (the VS Code extension, custom scripts) point cmdx at a
+//     specific themes directory without relying on cwd or binary
+//     location.
+//  2. ./themes relative to the current working directory (dev mode).
+//  3. themes/ next to the binary's own location (installed mode).
 func getThemesDir() string {
+	if dir := os.Getenv("CMDX_THEMES_DIR"); dir != "" {
+		return dir
+	}
 	wd, err := os.Getwd()
 	if err == nil {
 		local := filepath.Join(wd, "themes")

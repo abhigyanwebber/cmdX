@@ -46,6 +46,7 @@ structure. Drop your PNG files in, adjust the manifest, then import with:
 					Options(
 						huh.NewOption("Floater — decorative corner PNG", "floater"),
 						huh.NewOption("Mascot — reactive character with state machine", "mascot"),
+						huh.NewOption("Sound theme — audio feedback triggered by shell events", "sound"),
 						huh.NewOption("Spinner — animated loading sequence", "spinner"),
 						huh.NewOption("Banner — startup graphic", "banner"),
 						huh.NewOption("Divider — horizontal separator", "divider"),
@@ -118,15 +119,22 @@ structure. Drop your PNG files in, adjust the manifest, then import with:
 			),
 		)
 
-		if err := renderForm.Run(); err != nil {
-			fmt.Println("✗ Cancelled")
-			return
+		if assetType != "sound" {
+			if err := renderForm.Run(); err != nil {
+				fmt.Println("✗ Cancelled")
+				return
+			}
 		}
 
 		// ── Step 4: Size (type-appropriate defaults) ─────────
-		defaultWidth, defaultHeight := defaultSizeForType(assets.AssetType(assetType), assets.RenderMode(renderMode))
-		width = defaultWidth
-		height = defaultHeight
+		// Sound assets don't render through chafa at all, so width/height
+		// are meaningless for them — leave at zero rather than asking
+		// the user to pick dimensions for something with no visual output.
+		if assetType != "sound" {
+			defaultWidth, defaultHeight := defaultSizeForType(assets.AssetType(assetType), assets.RenderMode(renderMode))
+			width = defaultWidth
+			height = defaultHeight
+		}
 
 		// ── Generate manifest ─────────────────────────────────
 		a := buildManifest(assetType, name, author, description, renderMode, colorMode, width, height)
@@ -281,6 +289,40 @@ func buildManifest(assetType, name, author, description, renderMode, colorMode s
 				},
 			},
 		}
+	case "sound":
+		base["sound"] = map[string]interface{}{
+			"enabled":       true,
+			"global_volume": 0.8,
+			"sounds": map[string]interface{}{
+				"success": map[string]interface{}{
+					"file":   "success.wav",
+					"volume": 1.0,
+					"async":  true,
+					"triggers": []map[string]interface{}{
+						{"type": "exit_code", "value": "0", "priority": 20},
+					},
+				},
+				"error": map[string]interface{}{
+					"file":        "error.wav",
+					"volume":      1.0,
+					"async":       true,
+					"cooldown_ms": 2000,
+					"triggers": []map[string]interface{}{
+						{"type": "exit_code", "value": "1-127", "priority": 20},
+					},
+				},
+				"build-complete": map[string]interface{}{
+					"file":        "chime.wav",
+					"volume":      0.6,
+					"async":       true,
+					"cooldown_ms": 5000,
+					"triggers": []map[string]interface{}{
+						{"type": "command", "value": "go build*", "priority": 10},
+						{"type": "command", "value": "npm run build*", "priority": 10},
+					},
+				},
+			},
+		}
 	case "spinner":
 		base["spinner"] = map[string]interface{}{
 			"frames":      []string{"frame_01.png", "frame_02.png", "frame_03.png", "frame_04.png"},
@@ -328,6 +370,14 @@ func printNextSteps(assetType, name, outDir string) {
 		fmt.Printf("  3. cmdx asset import %s/ && cmdx asset use %s --as mascot\n", outDir, name)
 		fmt.Printf("  4. cmdx asset mascot-hooks %s  # print shell hook code\n", name)
 		fmt.Printf("  5. cmdx asset preview %s --state error  # preview a specific state\n", name)
+	case "sound":
+		fmt.Printf("  1. Add WAV files for each effect in %s/\n", outDir)
+		fmt.Printf("     success.wav, error.wav, chime.wav (WAV works everywhere with zero\n")
+		fmt.Printf("     extra dependencies — other formats need a custom 'player' set in asset.json)\n")
+		fmt.Printf("  2. Edit asset.json — customize triggers, volume, cooldown_ms\n")
+		fmt.Printf("  3. cmdx asset import %s/ && cmdx asset use %s --as sound\n", outDir, name)
+		fmt.Printf("  4. cmdx asset sound-hooks %s  # print shell hook code\n", name)
+		fmt.Printf("  5. cmdx asset preview %s --state error  # force-play a specific effect\n", name)
 	case "floater":
 		fmt.Printf("  1. Add your PNG file as: %s/floater.png\n", outDir)
 		fmt.Printf("  2. Edit %s/asset.json — set position (top-left, top-right, bottom-left, bottom-right)\n", outDir)
@@ -346,7 +396,9 @@ func printNextSteps(assetType, name, outDir string) {
 		fmt.Printf("  1. Add PNG files for each icon key in %s/\n", outDir)
 		fmt.Printf("  2. Edit %s/asset.json — map icon keys to filenames\n", outDir)
 	}
-	fmt.Printf("\n  Test render:  cmdx asset render %s/<your-file>.png\n", outDir)
+	if assetType != "sound" {
+		fmt.Printf("\n  Test render:  cmdx asset render %s/<your-file>.png\n", outDir)
+	}
 	fmt.Printf("  Validate:     cmdx asset validate %s\n", outDir)
 	fmt.Printf("  Import:       cmdx asset import %s\n", outDir)
 	fmt.Printf("  Preview:      cmdx asset preview %s\n\n", name)

@@ -1,10 +1,10 @@
 # cmdX — Session Handoff
-> Last updated: After floater integration, developer freedom expansion, security audit
+> Last updated: After VS Code extension, web theme builder, and main README overhaul
 
 ---
 
 ## What is cmdX
-A Go-based terminal theming framework — spinners, prompts, progress bars, banners, cursors, borders, PNG assets — via a single JSON theme file. Cross-platform: Windows (PowerShell/CMD), macOS (zsh), Linux (bash/zsh/fish).
+A Go-based terminal theming framework — spinners, prompts, progress bars, banners, cursors, borders, PNG assets, reactive mascots, composable status bars — via a single JSON theme file. Cross-platform: Windows (PowerShell/CMD), macOS (zsh), Linux (bash/zsh/fish).
 
 - **Repo:** github.com/abhigyanwebber/cmdX
 - **Themes repo:** github.com/abhigyanwebber/cmdX-themes
@@ -16,98 +16,84 @@ A Go-based terminal theming framework — spinners, prompts, progress bars, bann
 ## What's Complete
 
 ### Library Integrations
-- go-colorful (LAB gradients), termenv (capability detection), viper (global config)
-- huh (interactive theme creator), glamour (markdown output), harmonica (spring animations)
-- bubbles extended: list, spinner, progress, viewport — all wired into CLI
-- tview: evaluated, skipped (Bubble Tea editor is solid, no net gain)
+go-colorful, termenv, viper, huh, glamour, harmonica, bubbles extended (list/spinner/progress/viewport). tview evaluated and skipped.
 
 ### CLI Commands
 - `cmdx theme list/apply/info/validate/preview/inject/remove/create`
 - `cmdx registry list/browse/fetch/search`
 - `cmdx plugin list/info/validate/spinners`
 - `cmdx asset list/import/info/preview/validate/remove/use/status/chafa/render/create`
+- `cmdx asset mascot-state/mascot-info/mascot-hooks`
+- `cmdx asset statusbar-preview/statusbar-hooks/statusbar-info`
+- `cmdx font list/search/info/install/remove/installed/path`
 - `cmdx wallpaper set/remove/info`
-- `cmdx edit [theme]` — TUI editor with harmonica spring animations (60fps)
-- `cmdx config show/set/reset`
+- `cmdx edit [theme]`, `cmdx config show/set/reset`
 
-### Test Suite (full coverage)
-- internal/config: validator_test.go, loader_test.go, colors_test.go
-- internal/theme: manager_test.go
-- internal/graphics: gradient_test.go, effects_test.go
-- internal/assets: loader_test.go, chafa_test.go, floater_test.go
-- internal/shells: sanitize_test.go, powershell/powershell_test.go
-- internal/registry: registry_test.go
-- internal/plugin: manager_test.go
-- Real bugs found in testing: registry.Search() case-sensitive (fixed)
+### Test Suite
+Full coverage across config, theme, graphics, assets (incl. floater/mascot/statusbar/chafa), shells (incl. sanitize), registry, plugin, fonts. `cmd` package has helpers_test.go for the CMDX_THEMES_DIR/CMDX_ASSETS_DIR env var overrides (added during VS Code extension work — **not yet re-verified with a full `go test ./...` run since being added, verify this on next session start**).
 
-### Code Cleanup
-- resolveColor() centralized in internal/config/colors.go (was 4 duplicates)
-- preview.go split: preview.go (orchestrator) + sections.go + colors.go
-- cmd/helpers.go extracted: detectShell(), getThemesDir(), loadThemeOrExit()
-- Doc comments on every exported type/function across entire codebase
-- Manual lint pass against .golangci.yml: fixed noctx (HTTP context), errcheck (Sscanf)
+### Code Cleanup & Security Audit
+resolveColor centralized, preview.go split, cmd/helpers.go extracted, doc comments everywhere, lint pass against .golangci.yml. Security: shell injection sanitization (SanitizeForShell), registry path traversal fix (ValidThemeName + size caps), chafa argument injection fix (validateImagePath + `--` separator), install script hardening (set -euo pipefail), profile path detection audited safe.
 
-### Security Audit (all items closed)
-- Shell injection: SanitizeForShell() applied to all theme text fields in bash/zsh/powershell injection
-- Registry path traversal: ValidThemeName() allowlist + 1MiB download cap + JSON validity gate
-- Chafa argument injection: validateImagePath() + "--" separator
-- settings.json write: already safe (backup-before-write), confirmed
-- Install scripts: set -euo pipefail added, confirmed no injection vectors
-- Profile path detection: confirmed safe by design (hardcoded filenames + os.UserHomeDir)
+### Exotic Assets (all 3 complete)
+- **Floaters** — fixed 4 integration gaps (preview switch, status display, info block, theme-preview display)
+- **Mascots** — full state machine, 7 trigger types (exit_code/output_regex/env_var/idle_time/git_status/command/always), priority resolution, per-state render overrides with tinting, shell hooks for bash/zsh/powershell
+- **Status bar** — 16 segment types, 3 zones, 8 separator styles (incl. Powerline), pure shell code generation, no binary call at prompt time
 
-### Floaters (complete)
-- Type system, validation, CLI plumbing already scaffolded
-- Fixed 4 integration gaps: asset preview switch, asset status corners, asset info detail block, theme preview showing active floaters
-- floater_test.go: 8 tests, chafa tests use real PNG from repo assets
+### Font Installer (complete)
+10-font curated Nerd Fonts catalog, safe zip extraction (zip-slip protection matching cross-platform absolute-path edge cases, size/count caps), cross-platform install dirs, Windows registry registration (build-tagged), install state tracking, `--url` escape hatch for any font. Two real Windows bugs found and fixed during testing: (1) `filepath.IsAbs` doesn't catch POSIX-style absolute paths on Windows, (2) Windows Defender briefly locks newly-written .ttf files during real-time scan — fixed with temp-file + atomic-rename + exponential-backoff retry (up to ~13s worst case).
 
-### Developer Freedom Expansion
-- internal/assets/override.go: RenderOverrides struct + ApplyOverrides() + OverridesFromFlags()
-- Every Manager method has a WithOverrides variant
-- cmd/asset_create.go: interactive scaffolding wizard via huh (cmdx asset create)
-- cmdx asset render <path>: raw PNG→terminal, no manifest needed, all render flags exposed
-- cmdx asset preview: 9 override flags (--mode, --color, --symbols, --width, --height, --dither, --stretch, --threshold, --position)
-- REQUIREMENTS.md: Go/git/chafa install commands per platform, render mode matrix, sixel terminal support table
-- Makefile: make deps/build/test/vet/lint/clean/install
+### VS Code Extension (vscode-extension/, complete)
+JSON schemas for theme.json and asset.json matching the Go structs exactly. Webview theme preview panel. Sidebar Themes + Assets tree views. Commands wrap the real CLI (apply/validate via child_process + output channel; theme-create and asset-preview open a real integrated terminal since chafa/sixel can't be faithfully reproduced in a webview). Added CMDX_THEMES_DIR/CMDX_ASSETS_DIR env var support to the Go CLI so the extension's directory settings actually work (didn't exist before). Verified: `tsc` 0 errors, `eslint` 0 warnings (Node 22 in sandbox).
 
-### Community Themes (cmdX-themes repo)
-13 themes: synthwave, ocean, forest, ocean-depths, sunset-boulevard, forest-canopy, modern-minimalist, golden-hour, arctic-frost, desert-rose, tech-innovation, botanical-garden, midnight-galaxy
+### Web Theme Builder (web-builder/, complete)
+Vite + vanilla TypeScript static site. Full theme.json schema as editable controls (not a simplified subset). Live terminal mockup with real working animations for all 5 banner effects (glitch/rainbow/pulse/neon/typewriter) and real loader frame timing. Client-side validation mirroring internal/config/validator.go. 4 presets (cyberpunk/ocean/minimal/forest). Import/export/clipboard/shareable-URL (theme base64-encoded in URL hash, no backend). Verified: `npm install`, `tsc --noEmit`, `npm run build` all clean, dev server confirmed serving correctly (Node 22 in sandbox).
+
+### Main README.md
+Fully rewritten — was stale (missing all of the above, roadmap checkboxes wrong). Now covers exotic assets, font installer, both dev tools, updated project structure tree, corrected roadmap.
 
 ---
 
-## What's Next (Priority Order)
+## What's Next
 
-### 🔵 NOW — Exotic Assets (remaining)
-- [ ] Mascots — reactive character (idle/working/success/error/warning/sleeping)
-  - Different PNG per state in same asset folder
-  - asset.json type: mascot
-  - Shell injection triggers state changes based on exit codes
-  - cmdx asset use my-mascot --as mascot
-- [ ] Status bar — bottom bar with git status, time, directory
-  - asset.json type: status-bar
-  - Real-time updates via shell hooks
-  - Configurable segments
+### ✅ ALL MAJOR FEATURES COMPLETE
+- [x] Sound themes (internal/assets/sound.go, player.go) — the one asset
+      type with no chafa involved at all: shells out to a platform audio
+      player (afplay/paplay/aplay/ffplay/PowerShell SoundPlayer, with
+      paplay→aplay→ffplay fallback chain on Linux). Reuses the mascot
+      trigger vocabulary via a type-bridge to matchesTrigger (no
+      duplicated matching logic). Per-effect volume/cooldown/async,
+      cooldown persisted via .state/ files since each shell hook
+      invocation is a fresh process. Custom "player" command template
+      is the developer-freedom escape hatch for non-WAV formats. CLI:
+      asset sound-play/sound-info/sound-hooks. VS Code schema + 
+      REQUIREMENTS.md updated.
 
-### 🔵 FUTURE — Major Features
-- [ ] Web theme builder
-- [ ] VS Code extension
-- [ ] Sound themes
-- [ ] Font installer
+### 🔵 FUTURE (not part of the original 4 major features, optional)
+- Nothing currently planned — all roadmap items are complete. Natural
+  next directions if picked back up: community sound theme packs in
+  cmdX-themes, a "sound theme create" preset library similar to the
+  community theme registry, or extending the web builder to cover
+  asset.json (currently theme.json only).
+
+### Before push
+- [ ] Run full `go test ./...` — this covers both the CMDX_THEMES_DIR/CMDX_ASSETS_DIR changes from earlier in the session (cmd/helpers.go, cmd/asset.go, cmd/helpers_test.go) and the brand-new sound theme code (internal/assets/sound.go, player.go, sound_test.go, player_test.go). None of this has been run through the real Go toolchain yet — only manual brace-balance and duplicate-symbol checks in the sandbox (no `go` binary available here).
+- [ ] Sound test note: player_test.go's tests only verify command *construction* (args, paths), never actually invoke a real audio player — that's deliberate (CI/sandbox environments won't reliably have paplay/aplay/ffplay installed), so a passing test suite doesn't guarantee audio actually plays on your machine. Worth a manual `cmdx asset preview <sound-asset> --state success` smoke test after import.
 
 ---
 
 ## Session Rules
-1. Always: git push origin HEAD:main
-2. Always: go mod tidy && go mod download after extracting zip
+1. Always: `git push origin HEAD:main`
+2. Always: `go mod tidy && go mod download` after extracting zip (go.sum goes stale every time go.mod changes in the sandbox, since there's no Go toolchain here to run tidy directly)
 3. Stop at 80% context, write handoff
 4. Karpathy 4 rules: Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution
-5. Never duplicate resolveColor() across packages
-6. Every new package needs a _test.go file
-7. Verify build: go build -o cmdx.exe ./cmd/
-8. go test uses go vet automatically — fix vet warnings or tests appear to fail
+5. Never duplicate resolveColor() across packages — centralized in internal/config/colors.go
+6. Every new Go package needs a _test.go file
+7. `go test` runs `go vet` automatically — vet warnings fail the whole package's tests, not just show as warnings
+8. TypeScript projects (vscode-extension/, web-builder/) — sandbox HAS Node 22 + npm, so verify with real `tsc`/`eslint`/`vite build` rather than guessing
 
 ## Known Patterns
-- go.sum gets stale when I add go.mod entries (can't run go mod tidy in sandbox)
-  → always run `go mod tidy && go mod download` on your machine after unzipping
-- Chafa tests need real PNGs from repo assets, not synthetic bytes
-  → findRealPNG() helper in floater_test.go walks to ../../assets/
-- Branch naming: always git push origin HEAD:main (master/main conflict)
+- Chafa tests need real PNGs from repo assets, not synthetic bytes — see findRealPNG() in internal/assets/floater_test.go
+- Windows file writes to fresh files can hit AV-scan locks — write-to-temp + atomic-rename + retry pattern, see internal/fonts/zip.go's extractOneFile
+- filepath.IsAbs behaves differently per-OS — always test path-validation logic against POSIX-style paths explicitly, don't rely on IsAbs alone (see internal/fonts/zip.go's sanitizeExtractPath)
+- Branch naming: always `git push origin HEAD:main` (master/main conflict across the two dev machines)

@@ -1,0 +1,132 @@
+{
+  "name": "cmdx-vscode",
+  "displayName": "cmdX Theme Tools",
+  "description": "Edit, preview, and manage cmdX terminal themes and assets directly in VS Code — live JSON schema validation, visual preview, and one-click apply.",
+  "version": "0.1.0",
+  "publisher": "abhigyanwebber",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abhigyanwebber/cmdX"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Themes", "Snippets", "Other"],
+  "keywords": ["cmdx", "terminal", "theme", "shell", "prompt", "nerd fonts"],
+  "activationEvents": [
+    "onLanguage:json",
+    "onCommand:cmdx.previewTheme",
+    "onCommand:cmdx.applyTheme",
+    "onCommand:cmdx.validateTheme",
+    "onCommand:cmdx.previewAsset",
+    "onView:cmdxThemes",
+    "onView:cmdxAssets"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "cmdx.previewTheme", "title": "cmdX: Preview Theme", "icon": "$(eye)" },
+      { "command": "cmdx.applyTheme", "title": "cmdX: Apply Theme", "icon": "$(check)" },
+      { "command": "cmdx.validateTheme", "title": "cmdX: Validate Theme", "icon": "$(verified)" },
+      { "command": "cmdx.newTheme", "title": "cmdX: Create New Theme...", "icon": "$(add)" },
+      { "command": "cmdx.previewAsset", "title": "cmdX: Preview Asset (with overrides)...", "icon": "$(eye)" },
+      { "command": "cmdx.validateAsset", "title": "cmdX: Validate Asset", "icon": "$(verified)" },
+      { "command": "cmdx.refreshThemes", "title": "cmdX: Refresh Theme List", "icon": "$(refresh)" },
+      { "command": "cmdx.refreshAssets", "title": "cmdX: Refresh Asset List", "icon": "$(refresh)" },
+      { "command": "cmdx.installFont", "title": "cmdX: Install Font...", "icon": "$(text-size)" },
+      { "command": "cmdx.openThemeFile", "title": "cmdX: Open Theme File" },
+      { "command": "cmdx.setBinaryPath", "title": "cmdX: Set cmdx Executable Path..." }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "cmdx.previewTheme",
+          "when": "resourceFilename =~ /.*\\.json$/ && resourcePath =~ /themes/",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        { "command": "cmdx.refreshThemes", "when": "view == cmdxThemes", "group": "navigation" },
+        { "command": "cmdx.refreshAssets", "when": "view == cmdxAssets", "group": "navigation" }
+      ],
+      "view/item/context": [
+        { "command": "cmdx.previewTheme", "when": "view == cmdxThemes && viewItem == theme", "group": "inline" },
+        { "command": "cmdx.applyTheme", "when": "view == cmdxThemes && viewItem == theme", "group": "inline" },
+        { "command": "cmdx.previewAsset", "when": "view == cmdxAssets && viewItem == asset", "group": "inline" }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cmdx",
+          "title": "cmdX",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cmdx": [
+        { "id": "cmdxThemes", "name": "Themes" },
+        { "id": "cmdxAssets", "name": "Assets" }
+      ]
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": ["**/themes/*.json", "**/*.theme.json"],
+        "url": "./schemas/cmdx-theme.schema.json"
+      },
+      {
+        "fileMatch": ["**/asset.json"],
+        "url": "./schemas/cmdx-asset.schema.json"
+      }
+    ],
+    "configuration": {
+      "title": "cmdX",
+      "properties": {
+        "cmdx.executablePath": {
+          "type": "string",
+          "default": "cmdx",
+          "description": "Path to the cmdx executable. Defaults to 'cmdx', resolved from PATH. Set an absolute path if cmdx isn't on your PATH."
+        },
+        "cmdx.themesDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Path to your themes directory. Leave empty to let cmdx resolve it automatically (cwd/themes, or next to the binary)."
+        },
+        "cmdx.assetsDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Path to your assets directory. Leave empty to let cmdx resolve it automatically."
+        },
+        "cmdx.autoPreviewOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically refresh the theme preview panel when a theme JSON file is saved."
+        },
+        "cmdx.defaultRenderMode": {
+          "type": "string",
+          "enum": ["", "braille", "blocks", "ascii", "sixel", "color"],
+          "default": "",
+          "description": "Default render mode override passed to 'cmdx asset preview'. Empty uses the asset's own manifest default."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "@vscode/vsce": "^2.24.0"
+  }
+}

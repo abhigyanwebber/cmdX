@@ -126,6 +126,14 @@ func ValidateAsset(a *Asset, assetDir string) error {
 		if err := ValidateStatusBar(a.StatusBar); err != nil {
 			return fmt.Errorf("status_bar validation failed: %w", err)
 		}
+
+	case AssetTypeSound:
+		if a.Sound == nil {
+			return fmt.Errorf("sound config is required for sound assets")
+		}
+		if err := ValidateSoundTheme(a.Sound, assetDir); err != nil {
+			return fmt.Errorf("sound validation failed: %w", err)
+		}
 	}
 
 	return nil

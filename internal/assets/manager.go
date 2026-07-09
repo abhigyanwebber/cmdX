@@ -579,3 +579,49 @@ func segmentMockup(seg SegmentConfig) string {
 		return label + string(seg.Type)
 	}
 }
+
+// PreviewSound resolves and plays the appropriate sound effect for the
+// given context, or reports which effect (if any) matched without an
+// error if nothing did — silence is the normal/expected outcome for
+// most invocations, not a failure.
+func (m *Manager) PreviewSound(name string, ctx MascotContext) (playedSound string, err error) {
+	a, assetDir, err := m.Get(name, AssetTypeSound)
+	if err != nil {
+		return "", err
+	}
+	if a.Sound == nil {
+		return "", fmt.Errorf("asset '%s' has no sound config", name)
+	}
+	if !a.Sound.Enabled {
+		return "", nil
+	}
+
+	soundName, effect, ok := ResolveSound(a.Sound, ctx)
+	if !ok {
+		return "", nil
+	}
+
+	if err := PlaySound(assetDir, name, soundName, effect, a.Sound); err != nil {
+		return "", fmt.Errorf("could not play sound %q: %w", soundName, err)
+	}
+
+	return soundName, nil
+}
+
+// SoundHooks returns the shell hook code for a sound theme asset,
+// ready to be injected into the user's shell profile.
+func (m *Manager) SoundHooks(name string, shell string) (string, error) {
+	a, _, err := m.Get(name, AssetTypeSound)
+	if err != nil {
+		return "", err
+	}
+	if a.Sound == nil {
+		return "", fmt.Errorf("asset '%s' has no sound config", name)
+	}
+
+	hooks := SoundShellHooks(name, shell)
+	if hooks == "" {
+		return "", fmt.Errorf("unsupported shell %q for sound hooks", shell)
+	}
+	return hooks, nil
+}

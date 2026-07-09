@@ -1,0 +1,245 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "cmdX Asset",
+  "description": "A cmdX PNG asset manifest (spinner, banner, divider, icon, floater, mascot, or status bar). See https://github.com/abhigyanwebber/cmdX",
+  "type": "object",
+  "required": ["name", "type", "version", "render"],
+  "properties": {
+    "name": { "type": "string", "description": "Asset name, used as the identifier (no spaces)." },
+    "type": {
+      "type": "string",
+      "enum": ["spinner", "banner", "divider", "icon", "floater", "mascot", "status-bar", "sound"],
+      "description": "Which kind of asset this manifest describes."
+    },
+    "version": { "type": "string", "description": "Semver version, e.g. 1.0.0." },
+    "author": { "type": "string" },
+    "description": { "type": "string" },
+    "license": { "type": "string" },
+    "homepage": { "type": "string" },
+    "render": {
+      "type": "object",
+      "description": "Chafa render options — how the PNG is converted to terminal output. All of these can be overridden at runtime with 'cmdx asset preview --mode/--color/--width/--height/...' flags.",
+      "required": ["mode", "width", "height", "color_mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["braille", "blocks", "ascii", "sixel", "color"] },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "color_mode": { "type": "string", "enum": ["truecolor", "256", "ansi", "none"] },
+        "symbol_set": { "type": "string", "enum": ["braille", "block", "border", "ascii", "all"] },
+        "dither": { "type": "boolean" },
+        "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stretch": { "type": "boolean" },
+        "animate": { "type": "boolean", "description": "For GIF-sourced frame sequences." },
+        "fps": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "spinner": {
+      "type": "object",
+      "description": "Required when type is 'spinner'.",
+      "required": ["frames", "interval_ms"],
+      "properties": {
+        "frames": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "PNG filenames in animation order, relative to this manifest." },
+        "interval_ms": { "type": "integer", "minimum": 1 },
+        "reverse": { "type": "boolean" },
+        "bounce": { "type": "boolean", "description": "Play forward then reverse." },
+        "loop": { "type": "boolean" },
+        "on_complete": { "type": "string", "enum": ["clear", "persist", "checkmark"] }
+      }
+    },
+    "icon": {
+      "type": "object",
+      "description": "Required when type is 'icon'.",
+      "required": ["files"],
+      "properties": {
+        "files": {
+          "type": "object",
+          "description": "Maps icon key (e.g. 'directory', 'git') to a PNG filename.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "banner": {
+      "type": "object",
+      "description": "Required when type is 'banner'.",
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string" },
+        "position": { "type": "string", "enum": ["left", "center", "right"] },
+        "max_width": { "type": "integer", "minimum": 1 },
+        "max_height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "divider": {
+      "type": "object",
+      "description": "Required when type is 'divider'.",
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string" },
+        "tile_mode": { "type": "string", "enum": ["repeat", "stretch", "center"] },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "floater": {
+      "type": "object",
+      "description": "Required when type is 'floater'. Decorative PNG anchored to a terminal corner.",
+      "required": ["file", "position", "max_width", "max_height"],
+      "properties": {
+        "file": { "type": "string" },
+        "position": { "type": "string", "enum": ["top-left", "top-right", "bottom-left", "bottom-right"] },
+        "max_width": { "type": "integer", "minimum": 1 },
+        "max_height": { "type": "integer", "minimum": 1 },
+        "margin_x": { "type": "integer", "minimum": 0 },
+        "margin_y": { "type": "integer", "minimum": 0 },
+        "animate_frames": { "type": "array", "items": { "type": "string" } },
+        "interval_ms": { "type": "integer", "minimum": 1, "description": "Required if animate_frames is set." }
+      }
+    },
+    "mascot": {
+      "type": "object",
+      "description": "Required when type is 'mascot'. A reactive character with a state machine driven by shell hooks.",
+      "required": ["position", "max_width", "max_height", "states"],
+      "properties": {
+        "position": { "type": "string", "enum": ["top-left", "top-right", "bottom-left", "bottom-right"] },
+        "max_width": { "type": "integer", "minimum": 1 },
+        "max_height": { "type": "integer", "minimum": 1 },
+        "margin_x": { "type": "integer", "minimum": 0 },
+        "margin_y": { "type": "integer", "minimum": 0 },
+        "default_state": { "type": "string", "description": "Falls back to 'idle' if unset." },
+        "global_interval_ms": { "type": "integer", "minimum": 1 },
+        "hook_var": { "type": "string", "description": "Env var name for shell hook communication. Default: CMDX_MASCOT_TRIGGER." },
+        "states": {
+          "type": "object",
+          "description": "Map of state name (any string — idle/working/success/error/warning/sleeping are conventions, not requirements) to its config.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["frames"],
+            "properties": {
+              "frames": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+              "interval_ms": { "type": "integer", "minimum": 1 },
+              "transition_frames": { "type": "array", "items": { "type": "string" }, "description": "Played once on entering this state, before the main loop." },
+              "render_override": {
+                "type": "object",
+                "properties": {
+                  "width": { "type": "integer" },
+                  "height": { "type": "integer" },
+                  "color_mode": { "type": "string", "enum": ["truecolor", "256", "ansi", "none"] },
+                  "tint": { "type": "string", "pattern": "^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$", "description": "Hex color overlay, e.g. #FF4444 for error states." }
+                }
+              },
+              "triggers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["exit_code", "output_regex", "env_var", "idle_time", "git_status", "command", "always"]
+                    },
+                    "value": {
+                      "type": "string",
+                      "description": "exit_code: '0', '1-127', '128+'. output_regex: Go regex. env_var: 'VAR' or 'VAR=value'. idle_time: seconds. git_status: dirty/clean/untracked/ahead/behind. command: glob pattern."
+                    },
+                    "priority": { "type": "integer", "description": "Higher wins when multiple triggers match. Default 0." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "status_bar": {
+      "type": "object",
+      "description": "Required when type is 'status-bar'. Composable segment-based status bar, rendered as pure shell code (no cmdx binary call at prompt time).",
+      "required": ["segments", "position", "separator_style", "height"],
+      "properties": {
+        "position": { "type": "string", "enum": ["above", "below", "inline"] },
+        "separator_style": { "type": "string", "enum": ["powerline", "rounded", "angular", "bar", "dot", "slash", "none", "custom"] },
+        "custom_separator_left": { "type": "string" },
+        "custom_separator_right": { "type": "string" },
+        "height": { "type": "integer", "minimum": 1 },
+        "fill_background": { "type": "boolean" },
+        "hide_on_narrow": { "type": "integer", "description": "Hide the bar when terminal width is below this many columns. 0 = always show." },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "zone"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["git", "directory", "time", "date", "exit_code", "duration", "env_var", "virtualenv", "go_version", "node_version", "kubernetes", "battery", "user", "host", "text", "command"]
+              },
+              "zone": { "type": "string", "enum": ["left", "center", "right"] },
+              "label": { "type": "string" },
+              "format": { "type": "string", "description": "Required for 'text' segments. Time format string for time/date segments." },
+              "color": { "type": "string", "description": "Hex color or a semantic theme key (primary, accent, error, etc.)." },
+              "background": { "type": "string" },
+              "bold": { "type": "boolean" },
+              "dim": { "type": "boolean" },
+              "max_length": { "type": "integer" },
+              "padding": { "type": "integer" },
+              "order": { "type": "integer", "description": "Left-to-right position within the zone." },
+              "command": { "type": "string", "description": "Required for 'command' segments — shell command whose first output line becomes the value." },
+              "env_var": { "type": "string", "description": "Required for 'env_var' segments." },
+              "conditions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "env_set": { "type": "string" },
+                    "env_not_set": { "type": "string" },
+                    "in_git_repo": { "type": "boolean" },
+                    "min_width": { "type": "integer" },
+                    "exit_code_non_zero": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sound": {
+      "type": "object",
+      "description": "Required when type is 'sound'. Audio feedback triggered by shell events. Unlike every other asset type, this doesn't use chafa at all — it shells out to a platform audio player (see REQUIREMENTS.md).",
+      "required": ["enabled", "sounds"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "global_volume": { "type": "number", "minimum": 0, "maximum": 1, "description": "Multiplier applied on top of each sound's own volume." },
+        "player": { "type": "string", "description": "Custom player command template, e.g. 'ffplay -nodisp -autoexit %f'. %f is replaced with the file path. Overrides the auto-detected platform default (afplay/paplay/aplay/PowerShell SoundPlayer)." },
+        "sounds": {
+          "type": "object",
+          "description": "Map of effect name (any string you choose) to its configuration.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["file"],
+            "properties": {
+              "file": { "type": "string", "description": "Audio file relative to this manifest. WAV works everywhere with zero extra dependencies." },
+              "volume": { "type": "number", "minimum": 0, "maximum": 1 },
+              "cooldown_ms": { "type": "integer", "minimum": 0, "description": "Minimum time between repeated plays of this effect, persisted across shell invocations." },
+              "async": { "type": "boolean", "description": "If true, don't block the shell waiting for playback to finish." },
+              "triggers": {
+                "type": "array",
+                "description": "Same trigger vocabulary as mascot states — exit_code, output_regex, env_var, idle_time, git_status, command, always.",
+                "items": {
+                  "type": "object",
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["exit_code", "output_regex", "env_var", "idle_time", "git_status", "command", "always"]
+                    },
+                    "value": { "type": "string" },
+                    "priority": { "type": "integer", "description": "Higher wins when multiple triggers match. Default 0." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

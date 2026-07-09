@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "cmdX Theme",
+  "description": "A cmdX terminal theme definition. See https://github.com/abhigyanwebber/cmdX",
+  "type": "object",
+  "required": ["meta", "colors", "prompt", "loader", "progress_bar", "cursor"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "description": "Identifying information about this theme.",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "description": "Theme name (no spaces)." },
+        "version": { "type": "string", "description": "Semver version, e.g. 1.0.0." },
+        "author": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "colors": {
+      "type": "object",
+      "description": "Full semantic color palette. Every field must be a valid hex color.",
+      "required": ["primary", "secondary", "background", "foreground", "accent", "error", "success", "warning", "muted"],
+      "properties": {
+        "primary": { "$ref": "#/definitions/hexColor" },
+        "secondary": { "$ref": "#/definitions/hexColor" },
+        "background": { "$ref": "#/definitions/hexColor" },
+        "foreground": { "$ref": "#/definitions/hexColor" },
+        "accent": { "$ref": "#/definitions/hexColor" },
+        "error": { "$ref": "#/definitions/hexColor" },
+        "success": { "$ref": "#/definitions/hexColor" },
+        "warning": { "$ref": "#/definitions/hexColor" },
+        "muted": { "$ref": "#/definitions/hexColor" }
+      }
+    },
+    "prompt": {
+      "type": "object",
+      "description": "Shell prompt configuration.",
+      "required": ["symbol", "format", "style"],
+      "properties": {
+        "symbol": { "type": "string", "description": "Prompt symbol, e.g. '▶' or '$'." },
+        "separator": { "type": "string" },
+        "style": { "type": "string", "enum": ["single", "multiline"] },
+        "segments": { "type": "array", "items": { "type": "string" } },
+        "format": { "type": "string", "description": "Template using {user}, {dir}, {git}, {time}, {symbol}." }
+      }
+    },
+    "loader": {
+      "type": "object",
+      "description": "Animated spinner configuration.",
+      "required": ["frames", "interval_ms"],
+      "properties": {
+        "frames": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "interval_ms": { "type": "integer", "minimum": 1 },
+        "color": { "type": "string" }
+      }
+    },
+    "progress_bar": {
+      "type": "object",
+      "required": ["filled", "empty", "width"],
+      "properties": {
+        "filled": { "type": "string" },
+        "empty": { "type": "string" },
+        "width": { "type": "integer", "minimum": 1 },
+        "color": { "type": "string" }
+      }
+    },
+    "cursor": {
+      "type": "object",
+      "required": ["style"],
+      "properties": {
+        "style": { "type": "string", "enum": ["block", "bar", "underline"] },
+        "blink": { "type": "boolean" },
+        "color": { "type": "string" }
+      }
+    },
+    "borders": {
+      "type": "object",
+      "properties": {
+        "style": { "type": "string" },
+        "chars": {
+          "type": "object",
+          "properties": {
+            "top_left": { "type": "string" },
+            "top_right": { "type": "string" },
+            "bottom_left": { "type": "string" },
+            "bottom_right": { "type": "string" },
+            "horizontal": { "type": "string" },
+            "vertical": { "type": "string" }
+          }
+        }
+      }
+    },
+    "banner": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "text": { "type": "string", "description": "Supports {user} placeholder." },
+        "style": { "type": "string" },
+        "color": { "type": "string" }
+      }
+    },
+    "graphics": {
+      "type": "object",
+      "properties": {
+        "gradient": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "from": { "$ref": "#/definitions/hexColor" },
+            "to": { "$ref": "#/definitions/hexColor" },
+            "direction": { "type": "string", "enum": ["horizontal", "vertical"] }
+          }
+        },
+        "divider": {
+          "type": "object",
+          "properties": {
+            "style": { "type": "string", "enum": ["line", "wave", "dots", "stars", "double", "arrow", "zigzag"] },
+            "color": { "type": "string" }
+          }
+        },
+        "effects": {
+          "type": "object",
+          "properties": {
+            "banner": { "type": "string", "enum": ["glitch", "rainbow", "pulse", "neon", "typewriter", "none"] },
+            "prompt": { "type": "string", "enum": ["rainbow", "none"] }
+          }
+        },
+        "icons": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "directory": { "type": "string" },
+            "git_branch": { "type": "string" },
+            "error": { "type": "string" },
+            "success": { "type": "string" },
+            "time": { "type": "string" }
+          }
+        }
+      }
+    },
+    "wallpaper": {
+      "type": "object",
+      "description": "Terminal background image (Windows Terminal, iTerm2, Kitty).",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "path": { "type": "string" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stretch": { "type": "string", "enum": ["fill", "uniform", "uniformToFill", "none"] },
+        "alignment": { "type": "string", "enum": ["center", "topLeft", "topRight", "bottomLeft", "bottomRight"] }
+      }
+    },
+    "icons": {
+      "type": "object",
+      "description": "Full icon glyph set (requires a Nerd Font — see cmdx font install).",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "font": { "type": "string", "enum": ["nerd-fonts", "emoji", "ascii"] },
+        "directory": { "type": "string" },
+        "file": { "type": "string" },
+        "git_branch": { "type": "string" },
+        "git_dirty": { "type": "string" },
+        "git_clean": { "type": "string" },
+        "error": { "type": "string" },
+        "success": { "type": "string" },
+        "warning": { "type": "string" },
+        "time": { "type": "string" },
+        "package": { "type": "string" },
+        "docker": { "type": "string" },
+        "python": { "type": "string" },
+        "node": { "type": "string" },
+        "rust": { "type": "string" },
+        "go": { "type": "string" }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "description": "Named PNG assets linked to theme slots. Names resolve against your asset library — see cmdx asset list.",
+      "properties": {
+        "spinner": { "type": "string" },
+        "banner": { "type": "string" },
+        "divider": { "type": "string" },
+        "icons": { "type": "string" }
+      }
+    }
+  },
+  "definitions": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$",
+      "description": "Hex color, e.g. #FF00FF or #f0f."
+    }
+  }
+}

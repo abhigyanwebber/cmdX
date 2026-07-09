@@ -10,7 +10,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// getAssetsDir resolves the assets directory. Resolution order matches
+// getThemesDir: CMDX_ASSETS_DIR environment variable first, then
+// ./assets relative to cwd, then assets/ next to the binary.
 func getAssetsDir() string {
+	if dir := os.Getenv("CMDX_ASSETS_DIR"); dir != "" {
+		return dir
+	}
 	wd, err := os.Getwd()
 	if err == nil {
 		local := filepath.Join(wd, "assets")
@@ -48,6 +54,7 @@ var assetListCmd = &cobra.Command{
 			assets.AssetTypeFloater,
 			assets.AssetTypeMascot,
 			assets.AssetTypeStatusBar,
+			assets.AssetTypeSound,
 		}
 
 		found := false
@@ -122,6 +129,7 @@ var assetInfoCmd = &cobra.Command{
 			assets.AssetTypeFloater,
 			assets.AssetTypeMascot,
 			assets.AssetTypeStatusBar,
+			assets.AssetTypeSound,
 		}
 
 		for _, t := range types {
@@ -174,6 +182,18 @@ var assetInfoCmd = &cobra.Command{
 				fmt.Printf("    Max Size:   %dx%d\n", mc.MaxWidth, mc.MaxHeight)
 				fmt.Printf("    Hook var:   %s\n", hookVarOrDefault(mc.HookVar))
 				fmt.Printf("\n  Run 'cmdx asset mascot-info %s' for full state machine details.\n", a.Name)
+			}
+			if a.Sound != nil {
+				sc := a.Sound
+				fmt.Printf("\n  Sound Theme Config:\n")
+				fmt.Printf("    Enabled:    %v\n", sc.Enabled)
+				fmt.Printf("    Sounds:     %d defined\n", len(sc.Sounds))
+				if sc.Player != "" {
+					fmt.Printf("    Player:     %s (custom)\n", sc.Player)
+				} else {
+					fmt.Printf("    Player:     auto-detected per platform\n")
+				}
+				fmt.Printf("\n  Run 'cmdx asset sound-info %s' for full effect/trigger details.\n", a.Name)
 			}
 			fmt.Println()
 			return
@@ -237,11 +257,12 @@ All render options can be overridden at the CLI level without editing asset.json
 			assets.AssetTypeFloater,
 			assets.AssetTypeMascot,
 			assets.AssetTypeStatusBar,
+			assets.AssetTypeSound,
 			assets.AssetTypeIcon,
 		}
 
 		for _, t := range types {
-			a, _, err := m.Get(name, t)
+			a, assetDir, err := m.Get(name, t)
 			if err != nil {
 				continue
 			}
@@ -286,6 +307,33 @@ All render options can be overridden at the CLI level without editing asset.json
 				if err := m.PreviewMascot(name, ctx, overrides); err != nil {
 					fmt.Println("✗ Preview failed:", err)
 					os.Exit(1)
+				}
+
+			case assets.AssetTypeSound:
+				soundStr, _ := cmd.Flags().GetString("state") // reuse --state for "force this sound effect"
+				ctx := assets.MascotContext{LastExitCode: 0}
+				if soundStr != "" {
+					// preview a specific named effect directly, bypassing trigger resolution
+					if effect, ok := a.Sound.Sounds[soundStr]; ok {
+						if err := assets.PlaySound(assetDir, name, soundStr, effect, a.Sound); err != nil {
+							fmt.Println("✗ Preview failed:", err)
+							os.Exit(1)
+						}
+					} else {
+						fmt.Printf("✗ Sound effect '%s' not found in this asset.\n", soundStr)
+						os.Exit(1)
+					}
+				} else {
+					played, err := m.PreviewSound(name, ctx)
+					if err != nil {
+						fmt.Println("✗ Preview failed:", err)
+						os.Exit(1)
+					}
+					if played == "" {
+						fmt.Println("  (no trigger matched with exit code 0 — try --state <sound-name> to force a specific effect)")
+					} else {
+						fmt.Printf("  Played: %s\n", played)
+					}
 				}
 
 			case assets.AssetTypeIcon:
@@ -391,18 +439,19 @@ var assetUseCmd = &cobra.Command{
 		}
 
 		validTypes := map[string]assets.AssetType{
-			"spinner": assets.AssetTypeSpinner,
-			"banner":  assets.AssetTypeBanner,
-			"divider": assets.AssetTypeDivider,
-			"icons":   assets.AssetTypeIcon,
-			"floater": assets.AssetTypeFloater,
+			"spinner":    assets.AssetTypeSpinner,
+			"banner":     assets.AssetTypeBanner,
+			"divider":    assets.AssetTypeDivider,
+			"icons":      assets.AssetTypeIcon,
+			"floater":    assets.AssetTypeFloater,
 			"mascot":     assets.AssetTypeMascot,
 			"status-bar": assets.AssetTypeStatusBar,
+			"sound":      assets.AssetTypeSound,
 		}
 
 		assetType, ok := validTypes[slot]
 		if !ok {
-			fmt.Printf("✗ Unknown slot '%s'. Use: spinner, banner, divider, icons, floater, mascot, status-bar\n", slot)
+			fmt.Printf("✗ Unknown slot '%s'. Use: spinner, banner, divider, icons, floater, mascot, status-bar, sound\n", slot)
 			os.Exit(1)
 		}
 

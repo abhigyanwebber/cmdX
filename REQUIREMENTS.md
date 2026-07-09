@@ -61,6 +61,34 @@ Recommended: **chafa 1.14+** (best sixel quality and symbol coverage).
 
 ---
 
+### Audio players (for sound themes)
+
+Sound theme assets shell out to a platform audio player — unlike every other asset type, no chafa involved. **WAV** is the only format guaranteed to work with zero extra installs; other formats need a custom player configured via a sound asset's `player` field (see below).
+
+| Platform | Default player | Extra install needed? |
+|----------|----------------|------------------------|
+| Windows  | PowerShell's built-in `System.Media.SoundPlayer` | No — always available, WAV only |
+| macOS    | `afplay` | No — built into macOS |
+| Linux    | `paplay` → `aplay` → `ffplay` (tried in that order) | Usually no — `paplay`/`aplay` ship with most desktop distros (PulseAudio/ALSA). Install `ffmpeg` for the `ffplay` fallback if neither is present, or for broader format support |
+
+For MP3/OGG/etc. on any platform, or a completely custom playback setup, set a `player` template in the sound asset's manifest:
+```json
+{
+  "sound": {
+    "player": "ffplay -nodisp -autoexit -loglevel quiet %f"
+  }
+}
+```
+`%f` is replaced with the sound file's path. Requires `ffmpeg` (for `ffplay`) or whatever player binary you point it at.
+
+```bash
+# Linux — install ffmpeg for the ffplay fallback / broader format support
+sudo apt install ffmpeg      # Debian/Ubuntu
+sudo dnf install ffmpeg      # Fedora
+```
+
+---
+
 ## Building from source
 
 ```bash

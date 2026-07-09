@@ -63,6 +63,7 @@ type Asset struct {
 	Floater     *FloaterConfig    `json:"floater,omitempty"`
 	Mascot      *MascotConfig     `json:"mascot,omitempty"`
 	StatusBar   *StatusBarConfig  `json:"status_bar,omitempty"`
+	Sound       *SoundThemeConfig `json:"sound,omitempty"`
 }
 
 // RenderConfig defines how chafa converts images to terminal output
@@ -464,4 +465,90 @@ type StatusBarConfig struct {
 	// HideOnNarrow hides the entire bar when the terminal is narrower
 	// than this many columns. 0 means always show.
 	HideOnNarrow int `json:"hide_on_narrow,omitempty"`
+}
+
+// ── Sound Theme ──────────────────────────────────────────────────────────────
+
+// AssetTypeSound identifies a sound theme asset — audio feedback tied
+// to shell events. Unlike every other asset type, sound assets don't
+// go through chafa at all; they shell out to a platform audio player.
+const AssetTypeSound AssetType = "sound"
+
+// SoundTrigger defines a condition that triggers a sound effect.
+// Reuses the same trigger vocabulary as mascots (MascotTriggerType) so
+// theme authors only need to learn one trigger syntax across both
+// asset types — the same exit_code/output_regex/git_status/command
+// patterns that drive a mascot's state can drive a sound effect.
+type SoundTrigger struct {
+	Type     MascotTriggerType `json:"type"`
+	Value    string            `json:"value,omitempty"`
+	Priority int               `json:"priority,omitempty"`
+}
+
+// SoundEffect is one named, triggerable sound.
+type SoundEffect struct {
+	// File is the audio file path relative to the asset directory.
+	// WAV is the only format guaranteed to work with zero extra
+	// dependencies (native support via PowerShell on Windows, afplay
+	// on macOS, and paplay/aplay on most Linux distros). MP3/OGG/etc.
+	// work too, but only if a Player capable of decoding them is
+	// configured (e.g. ffplay via a custom Player template) — see
+	// SoundThemeConfig.Player.
+	File string `json:"file"`
+
+	// Volume scales this effect's playback volume, 0.0–1.0. Not every
+	// player backend supports volume control (see player.go) — when
+	// unsupported, this is silently ignored rather than erroring, since
+	// the sound still plays correctly, just without the effect.
+	Volume float64 `json:"volume,omitempty"`
+
+	// CooldownMs is the minimum time in milliseconds between repeated
+	// plays of this specific effect, tracked persistently across CLI
+	// invocations (each shell hook call is a fresh process, so this
+	// can't be tracked in memory — see player.go's cooldown state
+	// file). Prevents an obnoxious sound from firing on every single
+	// command if its trigger condition is broad. 0 means no cooldown.
+	CooldownMs int `json:"cooldown_ms,omitempty"`
+
+	// Async controls whether the shell blocks waiting for playback to
+	// finish (false — the default, useful for short confirmation
+	// sounds where you want to see completion) or fires the sound in
+	// the background without blocking the next prompt (true — useful
+	// for longer ambient/notification sounds).
+	Async bool `json:"async,omitempty"`
+
+	// Triggers is the list of conditions that play this effect. The
+	// highest-priority matching trigger across all effects wins, same
+	// resolution model as mascot states.
+	Triggers []SoundTrigger `json:"triggers,omitempty"`
+}
+
+// SoundThemeConfig is the top-level sound theme configuration block.
+type SoundThemeConfig struct {
+	Enabled bool `json:"enabled"`
+
+	// GlobalVolume is a 0.0–1.0 multiplier applied on top of each
+	// effect's own Volume, letting a user turn everything down (or up)
+	// without editing every individual effect.
+	GlobalVolume float64 `json:"global_volume,omitempty"`
+
+	// Player, if set, overrides the auto-detected platform default
+	// audio player entirely. This is the developer-freedom escape
+	// hatch: not every format or workflow is served by the built-in
+	// defaults (afplay/paplay/aplay/PowerShell SoundPlayer), so you can
+	// point this at anything — ffplay for broader format support, a
+	// custom wrapper script, whatever fits your setup.
+	//
+	// Template syntax: "%f" is replaced with the sound file's absolute
+	// path. Example: "ffplay -nodisp -autoexit -loglevel quiet %f".
+	// The template is split on whitespace and executed directly via
+	// argv (not through a shell), so it's not vulnerable to shell
+	// injection, but also doesn't support shell quoting — arguments
+	// with spaces aren't supported in the template itself.
+	Player string `json:"player,omitempty"`
+
+	// Sounds maps effect name (any string you choose — "success",
+	// "error", "build-complete", "coffee-break", anything) to its
+	// configuration.
+	Sounds map[string]SoundEffect `json:"sounds"`
 }
