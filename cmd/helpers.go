@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/abhigyanwebber/cmd-customizer/internal/assets"
 	"github.com/abhigyanwebber/cmd-customizer/internal/config"
@@ -88,12 +89,18 @@ func loadThemeOrExit(name string) (*theme.Manager, *config.Theme) {
 // commands like "theme preview" can display them alongside the rest of
 // a theme's visual elements.
 //
-// Floaters are deliberately not part of the theme JSON schema — they're
-// a per-machine asset selection, not theme-portable config — so this
-// reads directly from the asset state directory rather than from the
-// loaded *config.Theme. Missing or unconfigured corners are silently
-// skipped; this is a best-effort visual extra, not a required step, so
-// errors here are reported but never fatal to the calling command.
+// Floaters can be linked into a theme's `assets.floater` field like any
+// other slot (see activateThemeAssets) and get their name auto-activated
+// on `theme apply`/`inject` — but a floater's *corner position* always
+// comes from its own manifest (or an explicit `--position` override via
+// `asset use`), never from the theme JSON. This function specifically
+// reads live per-corner state directly from the asset state directory
+// (not from the loaded *config.Theme) because it needs to reflect
+// whichever floaters are actually active right now, including ones set
+// via a direct `asset use --as floater --position X` outside of any
+// theme. Missing or unconfigured corners are silently skipped; this is
+// a best-effort visual extra, not a required step, so errors here are
+// reported but never fatal to the calling command.
 //
 // Uses getAssetsDir, defined in cmd/asset.go.
 func showActiveFloaters() {
@@ -126,4 +133,194 @@ func showActiveFloaters() {
 	if shown {
 		fmt.Println()
 	}
+}
+
+// showActiveStatusBar renders the currently active status bar (if any)
+// after a theme preview, mirroring showActiveFloaters above. Reads the
+// name written to .state/status-bar.txt by activateAsset and previews
+// it for the current shell; errors here are reported but never fatal
+// to the calling command.
+//
+// Uses getAssetsDir, defined in cmd/asset.go.
+func showActiveStatusBar() {
+	statePath := filepath.Join(getAssetsDir(), ".state", "status-bar.txt")
+	data, err := os.ReadFile(statePath)
+	if err != nil {
+		return
+	}
+	name := string(data)
+
+	m, err := assets.NewManager(getAssetsDir())
+	if err != nil {
+		return
+	}
+
+	_, shell := detectShell()
+	colors := loadThemeColors()
+
+	fmt.Println("[ Active Status Bar ]")
+	if err := m.PreviewStatusBar(name, shell, colors); err != nil {
+		fmt.Printf("  ✗ Could not render status bar '%s': %v\n", name, err)
+	}
+	fmt.Println()
+}
+
+// activateAsset writes the ".state/<slot>.txt" file that marks name as
+// the active asset for the given slot, exactly matching what
+// "cmdx asset use --as <slot>" does. Extracted here so both the manual
+// "asset use" command and the automatic "theme apply" activation (see
+// activateThemeAssets) share one code path rather than two copies that
+// could silently drift apart.
+//
+// slot must be one of: spinner, banner, divider, icons, mascot,
+// status-bar, sound, floater. For floater, position may be empty to
+// use the floater's own configured position.
+func activateAsset(assetsDir, name, slot, position string) error {
+	validTypes := map[string]assets.AssetType{
+		"spinner":    assets.AssetTypeSpinner,
+		"banner":     assets.AssetTypeBanner,
+		"divider":    assets.AssetTypeDivider,
+		"icons":      assets.AssetTypeIcon,
+		"floater":    assets.AssetTypeFloater,
+		"mascot":     assets.AssetTypeMascot,
+		"status-bar": assets.AssetTypeStatusBar,
+		"sound":      assets.AssetTypeSound,
+	}
+
+	assetType, ok := validTypes[slot]
+	if !ok {
+		return fmt.Errorf("unknown slot %q", slot)
+	}
+
+	m, err := assets.NewManager(assetsDir)
+	if err != nil {
+		return err
+	}
+
+	a, _, err := m.Get(name, assetType)
+	if err != nil {
+		return fmt.Errorf("asset %q not found as type %q: %w", name, slot, err)
+	}
+
+	stateDir := filepath.Join(assetsDir, ".state")
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return err
+	}
+
+	if slot == "floater" {
+		resolvedPosition := position
+		if resolvedPosition == "" {
+			resolvedPosition = string(a.Floater.Position)
+		}
+		if !assets.IsValidFloaterPosition(assets.FloaterPosition(resolvedPosition)) {
+			return fmt.Errorf("invalid floater position %q", resolvedPosition)
+		}
+		statePath := filepath.Join(stateDir, "floater-"+resolvedPosition+".txt")
+		return os.WriteFile(statePath, []byte(name), 0644)
+	}
+
+	statePath := filepath.Join(stateDir, slot+".txt")
+	return os.WriteFile(statePath, []byte(name), 0644)
+}
+
+// activateThemeAssets activates every asset slot a theme declares in
+// its "assets" block (spinner, banner, divider, icons, mascot, floater,
+// status_bar, sound), continuing past individual failures rather than
+// aborting the whole theme apply — a broken asset reference shouldn't
+// prevent the theme's colors/prompt/etc. from applying. Returns the
+// list of slots that were successfully activated and any per-slot
+// errors encountered, so the caller can report both.
+func activateThemeAssets(assetsDir string, ta config.ThemeAssets) (activated []string, errs []error) {
+	type slotRef struct {
+		slot string
+		name string
+	}
+	slots := []slotRef{
+		{"spinner", ta.Spinner},
+		{"banner", ta.Banner},
+		{"divider", ta.Divider},
+		{"icons", ta.Icons},
+		{"mascot", ta.Mascot},
+		{"floater", ta.Floater},
+		{"status-bar", ta.StatusBar},
+		{"sound", ta.Sound},
+	}
+
+	for _, s := range slots {
+		if s.name == "" {
+			continue
+		}
+		if err := activateAsset(assetsDir, s.name, s.slot, ""); err != nil {
+			errs = append(errs, fmt.Errorf("%s %q: %w", s.slot, s.name, err))
+			continue
+		}
+		activated = append(activated, fmt.Sprintf("%s (%s)", s.name, s.slot))
+	}
+
+	return activated, errs
+}
+
+// syncAssetHooks installs or removes the mascot/sound theme shell hook
+// block in the given shell's profile, based on what the theme's assets
+// block currently links. Writes to a separate marked block
+// (shells.AssetHooksStart/End) from the theme's own injection block,
+// so removing/reinjecting a theme (which only touches
+// shells.InjectStart/End) never orphans or clobbers the asset hooks,
+// and vice versa. If the theme links neither a mascot nor a sound
+// asset, any previously-injected asset hooks block is cleanly removed
+// rather than left stale from an earlier theme.
+func syncAssetHooks(profilePath string, shellName string, ta config.ThemeAssets) error {
+	existing := ""
+	if data, err := os.ReadFile(profilePath); err == nil {
+		existing = string(data)
+	}
+	existing = stripAssetHooksBlock(existing)
+
+	m, err := assets.NewManager(getAssetsDir())
+	if err != nil {
+		return err
+	}
+
+	var hookBlocks []string
+	if ta.Mascot != "" {
+		if hooks, err := m.MascotHooks(ta.Mascot, shellName); err == nil {
+			hookBlocks = append(hookBlocks, hooks)
+		} else {
+			fmt.Printf("  ! Could not generate mascot hooks for '%s': %v\n", ta.Mascot, err)
+		}
+	}
+	if ta.Sound != "" {
+		if hooks, err := m.SoundHooks(ta.Sound, shellName); err == nil {
+			hookBlocks = append(hookBlocks, hooks)
+		} else {
+			fmt.Printf("  ! Could not generate sound hooks for '%s': %v\n", ta.Sound, err)
+		}
+	}
+
+	if len(hookBlocks) == 0 {
+		return os.WriteFile(profilePath, []byte(existing), 0644)
+	}
+
+	block := shells.AssetHooksStart + "\n" + joinHookBlocks(hookBlocks) + "\n" + shells.AssetHooksEnd
+	final := existing + "\n" + block + "\n"
+	return os.WriteFile(profilePath, []byte(final), 0644)
+}
+
+// stripAssetHooksBlock removes any existing asset-hooks block(s) from
+// content, mirroring the same start/end-marker stripping pattern each
+// shell package uses internally for its own theme injection block.
+func stripAssetHooksBlock(content string) string {
+	for {
+		start := strings.Index(content, shells.AssetHooksStart)
+		end := strings.Index(content, shells.AssetHooksEnd)
+		if start == -1 || end == -1 {
+			break
+		}
+		content = content[:start] + content[end+len(shells.AssetHooksEnd):]
+	}
+	return strings.TrimSpace(content)
+}
+
+func joinHookBlocks(blocks []string) string {
+	return strings.Join(blocks, "\n")
 }

@@ -89,9 +89,17 @@ func printPlainThemeList(items []tui.ThemeItem) {
 var themeApplyCmd = &cobra.Command{
 	Use:   "apply [theme-name]",
 	Short: "Apply a theme to your terminal",
-	Args:  cobra.ExactArgs(1),
+	Long: `Apply a theme to your terminal.
+
+If the theme's "assets" block links a spinner, banner, divider, icons,
+mascot, floater, status bar, or sound theme by name, those are
+activated automatically (equivalent to running "cmdx asset use" for
+each one). Use --no-assets to apply only the theme's colors/prompt/etc.
+without touching your currently active assets.`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
+		noAssets, _ := cmd.Flags().GetBool("no-assets")
 
 		m, err := theme.NewManager(getThemesDir())
 		if err != nil {
@@ -112,6 +120,19 @@ var themeApplyCmd = &cobra.Command{
 		t, _ := m.GetActive()
 		r := theme.NewRenderer(t)
 		r.RenderThemeInfo()
+
+		if !noAssets {
+			activated, errs := activateThemeAssets(getAssetsDir(), t.Assets)
+			if len(activated) > 0 {
+				fmt.Println("\n  Activated linked assets:")
+				for _, a := range activated {
+					fmt.Printf("    ✓ %s\n", a)
+				}
+			}
+			for _, e := range errs {
+				fmt.Printf("    ! Could not activate linked asset — %v\n", e)
+			}
+		}
 	},
 }
 
@@ -157,15 +178,25 @@ var themePreviewCmd = &cobra.Command{
 		p := preview.NewPreview(t)
 		p.Run()
 		showActiveFloaters()
+		showActiveStatusBar()
 	},
 }
 
 var themeInjectCmd = &cobra.Command{
 	Use:   "inject [theme-name]",
 	Short: "Inject a theme into your shell config (persists after restart)",
-	Args:  cobra.ExactArgs(1),
+	Long: `Inject a theme into your shell config so it persists across
+terminal restarts.
+
+If the theme's "assets" block links a mascot or sound theme, their
+shell hooks are also installed automatically (in a separate marked
+block from the theme injection itself, so "cmdx theme remove" and
+re-injecting a different theme don't interfere with each other). Use
+--no-hooks to skip this and inject only the theme's colors/prompt/etc.`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		_, t := loadThemeOrExit(args[0])
+		noHooks, _ := cmd.Flags().GetBool("no-hooks")
 
 		shell, shellName := detectShell()
 		if shell == nil {
@@ -188,6 +219,20 @@ var themeInjectCmd = &cobra.Command{
 
 		path, _ := shell.ProfilePath()
 		fmt.Printf("✓ Theme '%s' injected into %s\n", args[0], path)
+
+		if !noHooks {
+			if err := syncAssetHooks(path, shellName, t.Assets); err != nil {
+				fmt.Printf("  ! Could not sync asset shell hooks: %v\n", err)
+			} else {
+				if t.Assets.Mascot != "" {
+					fmt.Printf("✓ Mascot hooks installed for '%s'\n", t.Assets.Mascot)
+				}
+				if t.Assets.Sound != "" {
+					fmt.Printf("✓ Sound hooks installed for '%s'\n", t.Assets.Sound)
+				}
+			}
+		}
+
 		fmt.Println("  Restart your terminal to see changes.")
 	},
 }
@@ -215,12 +260,21 @@ var themeRemoveCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if path, err := shell.ProfilePath(); err == nil {
+			if err := syncAssetHooks(path, shellName, config.ThemeAssets{}); err != nil {
+				fmt.Printf("  ! Could not clean up asset shell hooks: %v\n", err)
+			}
+		}
+
 		fmt.Println("✓ cmdx theme removed from shell config.")
 		fmt.Println("  Restart your terminal to revert to default.")
 	},
 }
 
 func init() {
+	themeApplyCmd.Flags().Bool("no-assets", false, "Apply theme colors/prompt/etc. without activating linked assets")
+	themeInjectCmd.Flags().Bool("no-hooks", false, "Inject theme without installing linked mascot/sound shell hooks")
+
 	themeCmd.AddCommand(themeListCmd)
 	themeCmd.AddCommand(themeApplyCmd)
 	themeCmd.AddCommand(themeInfoCmd)

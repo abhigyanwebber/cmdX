@@ -5,11 +5,21 @@
 package assets
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+// chafaTimeout bounds every chafa subprocess invocation. Without this,
+// a malformed or adversarial image could cause chafa to hang
+// indefinitely (infinite loop in a decoder, waiting on unexpected
+// stdin, etc.), and cmdx would hang with it — there's no other
+// timeout anywhere in the call chain (asset preview, theme apply) to
+// catch this.
+const chafaTimeout = 15 * time.Second
 
 // ChafaOptions holds all options for a chafa render call
 type ChafaOptions struct {
@@ -33,7 +43,10 @@ func ChafaAvailable() bool {
 
 // ChafaVersion returns the installed chafa version string
 func ChafaVersion() (string, error) {
-	out, err := exec.Command("chafa", "--version").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), chafaTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "chafa", "--version").Output()
 	if err != nil {
 		return "", fmt.Errorf("chafa not found: %w", err)
 	}
@@ -88,8 +101,15 @@ func Render(imagePath string, opts ChafaOptions) (string, error) {
 	}
 
 	args := buildChafaArgs(imagePath, opts)
-	out, err := exec.Command("chafa", args...).Output()
+
+	ctx, cancel := context.WithTimeout(context.Background(), chafaTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "chafa", args...).Output()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("chafa render timed out after %s (the image may be malformed, or chafa is hanging) — image: %s", chafaTimeout, imagePath)
+		}
 		return "", fmt.Errorf("chafa render failed: %w", err)
 	}
 

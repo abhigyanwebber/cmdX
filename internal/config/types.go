@@ -189,9 +189,19 @@ type IconSet struct {
 
 // ThemeAssets links named PNG assets (by name, resolved against the
 // user's asset library) to theme slots: spinner, banner, divider, icons.
+// Mascot, floater, status-bar, and sound are separate slot types added
+// after the original schema — a theme can declare any combination of
+// these, and `cmdx theme apply` activates all of them automatically
+// (see cmd/helpers.go's activateThemeAssets). Floater is a single asset
+// name; its corner position comes from the floater's own manifest
+// unless overridden separately via `cmdx asset use --as floater --position`.
 type ThemeAssets struct {
-	Spinner string `json:"spinner,omitempty"`
-	Banner  string `json:"banner,omitempty"`
-	Divider string `json:"divider,omitempty"`
-	Icons   string `json:"icons,omitempty"`
+	Spinner   string `json:"spinner,omitempty"`
+	Banner    string `json:"banner,omitempty"`
+	Divider   string `json:"divider,omitempty"`
+	Icons     string `json:"icons,omitempty"`
+	Mascot    string `json:"mascot,omitempty"`
+	Floater   string `json:"floater,omitempty"`
+	StatusBar string `json:"status_bar,omitempty"`
+	Sound     string `json:"sound,omitempty"`
 }

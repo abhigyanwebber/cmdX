@@ -31,4 +31,15 @@ type Shell interface {
 const (
 	InjectStart = "# >>> cmdx theme start >>>"
 	InjectEnd   = "# <<< cmdx theme end <<<"
+
+	// AssetHooksStart/AssetHooksEnd wrap the separate block used for
+	// mascot/sound theme shell hooks, injected by "cmdx theme inject"
+	// when the active theme links a mascot or sound asset. Kept as a
+	// distinct marker pair from InjectStart/InjectEnd (rather than
+	// merging into the same block) so the theme's own inject/remove
+	// logic — which only strips content between InjectStart/InjectEnd —
+	// never accidentally touches or orphans the asset hooks block, and
+	// vice versa.
+	AssetHooksStart = "# >>> cmdx asset hooks start >>>"
+	AssetHooksEnd   = "# <<< cmdx asset hooks end <<<"
 )
