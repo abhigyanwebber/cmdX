@@ -394,8 +394,20 @@ func copyDir(src string, dst string) error {
 }
 
 // PreviewMascot renders and displays the mascot in its current resolved
-// state based on the provided context.
+// state based on the provided context. This is a convenience wrapper
+// around PreviewMascotState with no forced state (always resolves from
+// ctx via the normal trigger-priority rules).
 func (m *Manager) PreviewMascot(name string, ctx MascotContext, overrides RenderOverrides) error {
+	return m.PreviewMascotState(name, ctx, overrides, "")
+}
+
+// PreviewMascotState renders and displays a mascot. If forcedState is
+// non-empty, it is displayed as-is, bypassing trigger resolution
+// entirely — this is what lets callers (e.g. `mascot-state --state X`,
+// `asset preview --state X`) honor an explicit override instead of
+// having it silently discarded in favor of an independent ctx-based
+// resolution.
+func (m *Manager) PreviewMascotState(name string, ctx MascotContext, overrides RenderOverrides, forcedState MascotState) error {
 	a, assetDir, err := m.Get(name, AssetTypeMascot)
 	if err != nil {
 		return err
@@ -404,7 +416,10 @@ func (m *Manager) PreviewMascot(name string, ctx MascotContext, overrides Render
 		return fmt.Errorf("asset '%s' has no mascot config", name)
 	}
 
-	state := ResolveState(a.Mascot, ctx)
+	state := forcedState
+	if state == "" {
+		state = ResolveState(a.Mascot, ctx)
+	}
 	frames, transition, intervalMs, err := RenderMascotState(a, assetDir, state, overrides)
 	if err != nil {
 		return fmt.Errorf("could not render mascot state %q: %w", state, err)

@@ -70,10 +70,9 @@ var assetMascotStateCmd = &cobra.Command{
 
 		// display state name for shell to optionally show
 		fmt.Printf("\033[s") // save cursor position
-		if err := m.PreviewMascot(name, ctx, overrides); err != nil {
+		if err := m.PreviewMascotState(name, ctx, overrides, state); err != nil {
 			os.Exit(0)
 		}
-		_ = state
 	},
 }
 

@@ -302,6 +302,45 @@ func TestResolveState_CustomStateNames(t *testing.T) {
 	}
 }
 
+// TestResolveState_EqualPriorityTieIsToleratedNotFatal documents GAP-002's
+// established contract: when two triggers match with equal priority
+// (including both left at the zero-value default — the common authoring
+// mistake identified during investigation), which one wins is
+// unspecified and depends on Go's randomized map iteration order. This
+// is not asserted as a fixed pick (doing so would falsely lock in
+// arbitrary behavior as a contract); this test only guards that a tie
+// resolves to *one of the valid, matching candidates* every time rather
+// than panicking, returning an empty state, or falling through to an
+// unrelated default. See internal/assets/.CLAUDE.md's "Mascot Triggers"
+// section for the authoring guidance this behavior motivates.
+func TestResolveState_EqualPriorityTieIsToleratedNotFatal(t *testing.T) {
+	mc := &MascotConfig{
+		DefaultState: MascotStateIdle,
+		Position:     FloaterBottomRight,
+		MaxWidth:     8,
+		MaxHeight:    6,
+		States: map[MascotState]MascotStateConfig{
+			MascotStateIdle: {
+				Frames:   []string{"idle.png"},
+				Triggers: []MascotTrigger{{Type: TriggerAlways}}, // priority left at default (0)
+			},
+			MascotStateError: {
+				Frames:   []string{"error.png"},
+				Triggers: []MascotTrigger{{Type: TriggerExitCode, Value: "1-127"}}, // also default (0) — genuine tie with idle
+			},
+		},
+	}
+	ctx := MascotContext{LastExitCode: 42}
+
+	valid := map[MascotState]bool{MascotStateIdle: true, MascotStateError: true}
+	for i := 0; i < 20; i++ {
+		state := ResolveState(mc, ctx)
+		if !valid[state] {
+			t.Fatalf("ResolveState returned %q, which is neither of the two tied, matching states", state)
+		}
+	}
+}
+
 // ── matchesExitCode ───────────────────────────────────────────────────────────
 
 func TestMatchesExitCode_ExactMatch(t *testing.T) {

@@ -195,12 +195,22 @@ var assetInfoCmd = &cobra.Command{
 				}
 				fmt.Printf("\n  Run 'cmdx asset sound-info %s' for full effect/trigger details.\n", a.Name)
 			}
+			if a.StatusBar != nil {
+				sb := a.StatusBar
+				fmt.Printf("\n  Status Bar Config:\n")
+				fmt.Printf("    Segments:   %d defined\n", len(sb.Segments))
+				fmt.Printf("    Position:   %s\n", sb.Position)
+				fmt.Printf("    Separator:  %s\n", sb.SeparatorStyle)
+				fmt.Printf("    Height:     %d line(s)\n", sb.Height)
+				fmt.Printf("\n  Run 'cmdx asset statusbar-info %s' for full segment breakdown.\n", a.Name)
+			}
 			fmt.Println()
 			return
 		}
 
 		fmt.Printf("✗ Asset '%s' not found.\n", name)
 		fmt.Println("  Run 'cmdx asset list' to see installed assets.")
+		os.Exit(1)
 	},
 }
 
@@ -301,10 +311,7 @@ All render options can be overridden at the CLI level without editing asset.json
 					LastExitCode: 0,
 					Env:          map[string]string{},
 				}
-				if stateStr != "" {
-					ctx.Env["CMDX_MASCOT_STATE"] = stateStr
-				}
-				if err := m.PreviewMascot(name, ctx, overrides); err != nil {
+				if err := m.PreviewMascotState(name, ctx, overrides, assets.MascotState(stateStr)); err != nil {
 					fmt.Println("✗ Preview failed:", err)
 					os.Exit(1)
 				}
@@ -347,6 +354,18 @@ All render options can be overridden at the CLI level without editing asset.json
 					for key := range a.Icon.Files {
 						m.PreviewIconWithOverrides(name, key, overrides)
 					}
+				}
+
+			case assets.AssetTypeStatusBar:
+				shell, _ := cmd.Flags().GetString("shell")
+				if shell == "" {
+					_, shellName := detectShell()
+					shell = shellName
+				}
+				colors := loadThemeColors()
+				if err := m.PreviewStatusBar(name, shell, colors); err != nil {
+					fmt.Println("✗ Preview failed:", err)
+					os.Exit(1)
 				}
 			}
 			return
@@ -428,7 +447,7 @@ var assetUseCmd = &cobra.Command{
 		position, _ := cmd.Flags().GetString("position")
 
 		if slot == "" {
-			fmt.Println("✗ Specify what to use this asset as: --as spinner|banner|divider|icons|floater")
+			fmt.Println("✗ Specify what to use this asset as: --as spinner|banner|divider|icons|floater|mascot|status-bar|sound")
 			os.Exit(1)
 		}
 
@@ -598,7 +617,7 @@ var assetStatusCmd = &cobra.Command{
 	Short: "Show currently active assets",
 	Run: func(cmd *cobra.Command, args []string) {
 		stateDir := filepath.Join(getAssetsDir(), ".state")
-		slots := []string{"spinner", "banner", "divider", "icons"}
+		slots := []string{"spinner", "banner", "divider", "icons", "mascot", "status-bar", "sound"}
 
 		fmt.Println("\n  Active Assets:")
 		for _, slot := range slots {
@@ -654,9 +673,10 @@ func init() {
 	assetPreviewCmd.Flags().Float64("threshold", 0, "Override alpha/contrast threshold (0.0–1.0)")
 	assetPreviewCmd.Flags().String("position", "", "Override floater position: top-left, top-right, bottom-left, bottom-right")
 	assetPreviewCmd.Flags().String("state", "", "Override mascot state: idle, working, success, error, warning, sleeping (or custom)")
+	assetPreviewCmd.Flags().String("shell", "", "Shell type for status bar preview: bash, zsh, powershell (default: auto-detect)")
 
 	// ── asset use flags ────────────────────────────────────────────────────
-	assetUseCmd.Flags().StringP("as", "a", "", "Asset slot: spinner, banner, divider, icons, floater")
+	assetUseCmd.Flags().StringP("as", "a", "", "Asset slot: spinner, banner, divider, icons, floater, mascot, status-bar, sound")
 	assetUseCmd.Flags().String("position", "", "Floater corner position: top-left, top-right, bottom-left, bottom-right (defaults to the asset's configured position)")
 
 	assetCmd.AddCommand(assetListCmd)
