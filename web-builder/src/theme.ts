@@ -135,6 +135,10 @@ export interface ThemeAssets {
   banner?: string;
   divider?: string;
   icons?: string;
+  mascot?: string;
+  floater?: string;
+  status_bar?: string;
+  sound?: string;
 }
 
 export interface Theme {

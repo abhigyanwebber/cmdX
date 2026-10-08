@@ -342,6 +342,10 @@ export class FormPanel {
     g.appendChild(this.textField('Banner asset name', a.banner ?? '', (v) => (a.banner = v || undefined)));
     g.appendChild(this.textField('Divider asset name', a.divider ?? '', (v) => (a.divider = v || undefined)));
     g.appendChild(this.textField('Icons asset name', a.icons ?? '', (v) => (a.icons = v || undefined)));
+    g.appendChild(this.textField('Mascot asset name', a.mascot ?? '', (v) => (a.mascot = v || undefined)));
+    g.appendChild(this.textField('Floater asset name', a.floater ?? '', (v) => (a.floater = v || undefined)));
+    g.appendChild(this.textField('Status bar asset name', a.status_bar ?? '', (v) => (a.status_bar = v || undefined)));
+    g.appendChild(this.textField('Sound theme asset name', a.sound ?? '', (v) => (a.sound = v || undefined)));
     return g;
   }
 }
