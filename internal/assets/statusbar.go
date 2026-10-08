@@ -154,8 +154,14 @@ func segmentsByZone(sb *StatusBarConfig) (left, center, right []SegmentConfig) {
 	return
 }
 
-// bashSegmentCode returns the bash shell code that renders one segment's value.
-func bashSegmentCode(seg SegmentConfig) string {
+// bashSegmentCode returns the bash shell code that renders one segment's
+// value. idx must be the same zone-relative index passed to
+// bashSegVarName when assembling this segment (see statusBarBash),
+// so the variable this function assigns into is the exact one the
+// assembly step later checks — see the bashSegVarName doc comment for
+// why a shared, collision-free name matters here.
+func bashSegmentCode(seg SegmentConfig, idx int) string {
+	varName := bashSegVarName(seg, idx)
 	switch seg.Type {
 	case SegmentGit:
 		format := seg.Format
@@ -170,8 +176,8 @@ func bashSegmentCode(seg SegmentConfig) string {
         [ -n "$(git status --porcelain 2>/dev/null)" ] && __cmdx_git_dirty="*"
     fi
     if [ -n "$__cmdx_git_branch" ]; then
-        __seg_git="%s$__cmdx_git_branch$__cmdx_git_dirty"
-    fi`, seg.Label)
+        %s="%s$__cmdx_git_branch$__cmdx_git_dirty"
+    fi`, varName, seg.Label)
 
 	case SegmentDirectory:
 		maxLen := seg.MaxLength
@@ -182,68 +188,68 @@ func bashSegmentCode(seg SegmentConfig) string {
 		if label == "" {
 			label = " "
 		}
-		return fmt.Sprintf(`    __seg_dir="%s$(pwd | sed "s|$HOME|~|" | awk -F/ '{if(length($0)>%d){print "…/"$NF}else{print $0}}')"`, label, maxLen)
+		return fmt.Sprintf(`    %s="%s$(pwd | sed "s|$HOME|~|" | awk -F/ '{if(length($0)>%d){print "…/"$NF}else{print $0}}')"`, varName, label, maxLen)
 
 	case SegmentTime:
 		format := seg.Format
 		if format == "" {
 			format = "%H:%M"
 		}
-		return fmt.Sprintf(`    __seg_time="%s$(date +"%s")"`, seg.Label, format)
+		return fmt.Sprintf(`    %s="%s$(date +"%s")"`, varName, seg.Label, format)
 
 	case SegmentDate:
 		format := seg.Format
 		if format == "" {
 			format = "%Y-%m-%d"
 		}
-		return fmt.Sprintf(`    __seg_date="%s$(date +"%s")"`, seg.Label, format)
+		return fmt.Sprintf(`    %s="%s$(date +"%s")"`, varName, seg.Label, format)
 
 	case SegmentExitCode:
-		return `    __seg_exit=""
-    [ $__cmdx_exit_code -ne 0 ] && __seg_exit=" ✗$__cmdx_exit_code"`
+		return fmt.Sprintf(`    %s=""
+    [ $__cmdx_exit_code -ne 0 ] && %s=" ✗$__cmdx_exit_code"`, varName, varName)
 
 	case SegmentDuration:
-		return `    __seg_dur=""
-    [ -n "$__cmdx_cmd_duration" ] && __seg_dur=" ⏱${__cmdx_cmd_duration}s"`
+		return fmt.Sprintf(`    %s=""
+    [ -n "$__cmdx_cmd_duration" ] && %s=" ⏱${__cmdx_cmd_duration}s"`, varName, varName)
 
 	case SegmentUser:
-		return fmt.Sprintf(`    __seg_user="%s$USER"`, seg.Label)
+		return fmt.Sprintf(`    %s="%s$USER"`, varName, seg.Label)
 
 	case SegmentHost:
-		return fmt.Sprintf(`    __seg_host="%s$(hostname -s)"`, seg.Label)
+		return fmt.Sprintf(`    %s="%s$(hostname -s)"`, varName, seg.Label)
 
 	case SegmentVirtualEnv:
-		return `    __seg_venv=""
-    [ -n "$VIRTUAL_ENV" ] && __seg_venv=" ($(basename $VIRTUAL_ENV))"
-    [ -n "$CONDA_DEFAULT_ENV" ] && __seg_venv=" ($CONDA_DEFAULT_ENV)"`
+		return fmt.Sprintf(`    %s=""
+    [ -n "$VIRTUAL_ENV" ] && %s=" ($(basename $VIRTUAL_ENV))"
+    [ -n "$CONDA_DEFAULT_ENV" ] && %s=" ($CONDA_DEFAULT_ENV)"`, varName, varName, varName)
 
 	case SegmentEnvVar:
-		return fmt.Sprintf(`    __seg_env="%s${%s}"`, seg.Label, seg.EnvVar)
+		return fmt.Sprintf(`    %s="%s${%s}"`, varName, seg.Label, seg.EnvVar)
 
 	case SegmentGoVersion:
-		return `    __seg_go=""
-    command -v go >/dev/null 2>&1 && __seg_go=" go$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')"`
+		return fmt.Sprintf(`    %s=""
+    command -v go >/dev/null 2>&1 && %s=" go$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')"`, varName, varName)
 
 	case SegmentNodeVersion:
-		return `    __seg_node=""
-    command -v node >/dev/null 2>&1 && __seg_node=" node$(node --version 2>/dev/null)"`
+		return fmt.Sprintf(`    %s=""
+    command -v node >/dev/null 2>&1 && %s=" node$(node --version 2>/dev/null)"`, varName, varName)
 
 	case SegmentKubernetes:
-		return `    __seg_k8s=""
-    command -v kubectl >/dev/null 2>&1 && __seg_k8s=" ⎈$(kubectl config current-context 2>/dev/null)"`
+		return fmt.Sprintf(`    %s=""
+    command -v kubectl >/dev/null 2>&1 && %s=" ⎈$(kubectl config current-context 2>/dev/null)"`, varName, varName)
 
 	case SegmentBattery:
-		return `    __seg_bat=""
+		return fmt.Sprintf(`    %s=""
     if [ -f /sys/class/power_supply/BAT0/capacity ]; then
         __bat=$(cat /sys/class/power_supply/BAT0/capacity)
-        __seg_bat=" 🔋${__bat}%"
-    fi`
+        %s=" 🔋${__bat}%%"
+    fi`, varName, varName)
 
 	case SegmentText:
-		return fmt.Sprintf(`    __seg_text="%s"`, seg.Format)
+		return fmt.Sprintf(`    %s="%s"`, varName, seg.Format)
 
 	case SegmentCommand:
-		return fmt.Sprintf(`    __seg_cmd="$(%s 2>/dev/null | head -1)"`, seg.Command)
+		return fmt.Sprintf(`    %s="$(%s 2>/dev/null | head -1)"`, varName, seg.Command)
 
 	default:
 		return ""
@@ -284,9 +290,25 @@ __cmdx_exit_code=$?
 __cmdx_cmd_duration=""
 `)
 
-	// segment value computations
-	for _, seg := range append(append(left, center...), right...) {
-		b.WriteString(bashSegmentCode(seg))
+	// segment value computations. idx must match exactly what the
+	// assembly step below passes to bashSegVarName for the same
+	// segment, or the assembled bar silently renders empty (this was a
+	// real, shipped bug: the two used different, disconnected naming
+	// schemes — see bashSegVarName's doc comment).
+	for i, seg := range left {
+		b.WriteString(bashSegmentCode(seg, i))
+		b.WriteString("\n")
+	}
+	for i, seg := range right {
+		b.WriteString(bashSegmentCode(seg, i+100))
+		b.WriteString("\n")
+	}
+	// center-zone segments are not currently assembled into the
+	// rendered bar at all (see the GAP note in KNOWN_ISSUES.md) — they
+	// still get a harmless, uniquely-named compute line so a future
+	// fix only needs to add the assembly half, not the compute half.
+	for i, seg := range center {
+		b.WriteString(bashSegmentCode(seg, i+200))
 		b.WriteString("\n")
 	}
 
@@ -342,7 +364,7 @@ __cmdx_statusbar() {
 `)
 
 	for i, seg := range left {
-		b.WriteString(zshSegmentCode(seg))
+		b.WriteString(zshSegmentCode(seg, i))
 		varName := bashSegVarName(seg, i)
 		color := resolveSegColor(seg.Color, colors)
 		if color != "" && strings.HasPrefix(color, "#") {
@@ -352,7 +374,7 @@ __cmdx_statusbar() {
 	}
 
 	for i, seg := range right {
-		b.WriteString(zshSegmentCode(seg))
+		b.WriteString(zshSegmentCode(seg, i+100))
 		varName := bashSegVarName(seg, i+100)
 		color := resolveSegColor(seg.Color, colors)
 		if color != "" && strings.HasPrefix(color, "#") {
@@ -422,8 +444,13 @@ function prompt {
 }
 
 // zshSegmentCode returns the zsh code that computes a segment's value.
-func zshSegmentCode(seg SegmentConfig) string {
-	varName := bashSegVarName(seg, 0)
+// idx must match exactly what the assembly step passes to
+// bashSegVarName for the same segment — see bashSegmentCode's doc
+// comment for why (this function had the same shipped bug, introduced
+// slightly differently: it hardcoded idx=0 for every segment instead
+// of receiving the real zone-relative index).
+func zshSegmentCode(seg SegmentConfig, idx int) string {
+	varName := bashSegVarName(seg, idx)
 	switch seg.Type {
 	case SegmentGit:
 		return fmt.Sprintf(`

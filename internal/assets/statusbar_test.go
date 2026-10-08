@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -352,5 +353,82 @@ func TestResolveSegColor_UnknownKeyPassthrough(t *testing.T) {
 	result := resolveSegColor("unknown-key", map[string]string{})
 	if result != "unknown-key" {
 		t.Errorf("expected unknown key to pass through, got %q", result)
+	}
+}
+
+// ── Compute/assembly variable-name consistency ─────────────────────────────
+//
+// Regression coverage for a real, shipped bug: the per-segment value
+// computation and the final bar assembly used two independently-written,
+// disconnected variable-naming schemes. Every segment beyond the first
+// in a zone silently referenced a variable that was never assigned,
+// so the rendered status bar was empty for any realistic multi-segment
+// bar. Prior tests did call StatusBarShellCode, but only checked
+// superficial properties (non-empty output, presence of expected
+// substrings like "PROMPT_COMMAND") — none inspected whether the
+// variables the assembly step checks were ever actually assigned by
+// the compute step, which is exactly where this bug lived.
+//
+// assignedVars finds every `name="..."` / `name=""` / `local name="..."`
+// assignment target in generated shell code.
+func assignedVars(code string) map[string]bool {
+	found := map[string]bool{}
+	re := regexp.MustCompile(`(?m)^\s*(?:local\s+)?(\$?__seg_\w+)=`)
+	for _, m := range re.FindAllStringSubmatch(code, -1) {
+		found[strings.TrimPrefix(m[1], "$")] = true
+	}
+	return found
+}
+
+// checkedVars finds every variable referenced in a `-n "$name"` /
+// `-n \"$name\"` truthiness check — the assembly step's gate for
+// whether to include a segment in the rendered bar.
+func checkedVars(code string) []string {
+	re := regexp.MustCompile(`-n\s+\\?"\$(__seg_\w+)\\?"`)
+	var found []string
+	for _, m := range re.FindAllStringSubmatch(code, -1) {
+		found = append(found, m[1])
+	}
+	return found
+}
+
+func TestStatusBarShellCode_BashAssemblyVarsAreAllAssigned(t *testing.T) {
+	code := StatusBarShellCode(buildValidStatusBar(), nil, "bash")
+	assigned := assignedVars(code)
+	for _, v := range checkedVars(code) {
+		if !assigned[v] {
+			t.Errorf("bash assembly checks $%s but no compute step ever assigns it — the bar would silently omit this segment forever; full generated code:\n%s", v, code)
+		}
+	}
+	if len(checkedVars(code)) == 0 {
+		t.Fatal("test fixture produced no assembly checks at all — fixture or regex is broken, this test isn't actually testing anything")
+	}
+}
+
+func TestStatusBarShellCode_ZshAssemblyVarsAreAllAssigned(t *testing.T) {
+	code := StatusBarShellCode(buildValidStatusBar(), nil, "zsh")
+	assigned := assignedVars(code)
+	for _, v := range checkedVars(code) {
+		if !assigned[v] {
+			t.Errorf("zsh assembly checks $%s but no compute step ever assigns it — the bar would silently omit this segment forever; full generated code:\n%s", v, code)
+		}
+	}
+	if len(checkedVars(code)) == 0 {
+		t.Fatal("test fixture produced no assembly checks at all — fixture or regex is broken, this test isn't actually testing anything")
+	}
+}
+
+// TestBashSegVarName_UniquePerZoneRelativeIndex guards the specific
+// mechanism the bug above hinged on: two segments of the same type at
+// different zone-relative indices must get different variable names,
+// and the same (type, index) pair must always produce the same name
+// (compute and assembly only stay in sync if this holds).
+func TestBashSegVarName_UniquePerZoneRelativeIndex(t *testing.T) {
+	seg := SegmentConfig{Type: SegmentText}
+	if bashSegVarName(seg, 0) == bashSegVarName(seg, 1) {
+		t.Error("expected different indices to produce different variable names")
+	}
+	if bashSegVarName(seg, 2) != bashSegVarName(seg, 2) {
+		t.Error("expected the same (type, index) pair to always produce the same name")
 	}
 }
