@@ -120,7 +120,12 @@ var registryBrowseCmd = &cobra.Command{
 		}
 
 		chosen, err := tui.RunThemeList(themeItems, "#FF00FF", "#00FFFF", "#444444")
-		if err != nil || chosen == "" {
+		if err != nil {
+			fmt.Println("  'registry browse' needs an interactive terminal.")
+			fmt.Println("  Run 'cmdx registry list' instead, then 'cmdx registry fetch <name>'.")
+			return
+		}
+		if chosen == "" {
 			return
 		}
 

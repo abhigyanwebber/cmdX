@@ -74,7 +74,18 @@ func (m SpinnerModel) View() string {
 func (m SpinnerModel) Err() error { return m.err }
 
 // RunSpinner runs a task with a spinner and returns any error from the task.
+// When stdin/stdout aren't a real terminal, it skips Bubble Tea entirely
+// and just prints the message and runs the task directly — tea.Program's
+// Run() blocks indefinitely rather than erroring when there's no real
+// TTY to read input from, so this check has to happen before the
+// program is ever started (see IsInteractive's doc comment). The
+// returned error is identical either way: whatever task() itself
+// returns.
 func RunSpinner(message, primary string, task func() error) error {
+	if !IsInteractive() {
+		fmt.Printf("  %s\n", message)
+		return task()
+	}
 	m := NewSpinner(message, primary, task)
 	p := tea.NewProgram(m)
 	result, err := p.Run()

@@ -2,6 +2,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -136,8 +137,19 @@ func (m ThemeListModel) View() string {
 // Chosen returns the selected theme name, or empty string if cancelled.
 func (m ThemeListModel) Chosen() string { return m.chosen }
 
+// errNonInteractive is returned by RunThemeList when stdin/stdout aren't
+// a real terminal, before tea.NewProgram is ever started — see
+// IsInteractive's doc comment for why this can't just rely on
+// tea.Program's own error return. Callers already treat any RunThemeList
+// error as "fall back to a non-interactive listing" (see cmd/theme.go's
+// printPlainThemeList), so this reuses that existing path unchanged.
+var errNonInteractive = errors.New("not running in an interactive terminal")
+
 // RunThemeList launches the interactive theme picker and returns the chosen name.
 func RunThemeList(items []ThemeItem, primary, accent, muted string) (string, error) {
+	if !IsInteractive() {
+		return "", errNonInteractive
+	}
 	m := NewThemeList(items, primary, accent, muted)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	result, err := p.Run()
